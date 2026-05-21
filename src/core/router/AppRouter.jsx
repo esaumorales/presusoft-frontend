@@ -15,7 +15,10 @@ import ClientsList from '../../features/clients/pages/ClientsList';
 import BudgetsList from '../../features/budgets/pages/BudgetsList';
 import BudgetEditor from '../../features/budgets/pages/BudgetEditor';
 import TemplatesList from '../../features/templates/pages/TemplatesList';
+import TemplateEditor from '../../features/templates/pages/TemplateEditor';
 import SettingsPage from '../../features/settings/pages/SettingsPage';
+import IntegrationsList from '../../features/integrations/pages/IntegrationsList';
+import ReportsPage from '../../features/reports/pages/ReportsPage';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, token } = useAuthStore();
@@ -33,17 +36,20 @@ export default function AppRouter() {
       <Routes>
         {/* Públicas */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
         {/* Privadas */}
         <Route path="/" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
-          <Route path="dashboard"      element={<Dashboard />} />
-          <Route path="clients"        element={<ClientsList />} />
-          <Route path="budgets"        element={<BudgetsList />} />
-          <Route path="budgets/:id"    element={<BudgetEditor />} />
-          <Route path="templates"      element={<TemplatesList />} />
-          <Route path="settings"       element={<SettingsPage />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="clients" element={<ClientsList />} />
+          <Route path="budgets" element={<BudgetsList />} />
+          <Route path="budgets/:id" element={<BudgetEditor />} />
+          <Route path="templates" element={<TemplatesList />} />
+          <Route path="templates/:id" element={<TemplateEditor />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="integrations" element={<IntegrationsList />} />
+          <Route path="reports" element={<ReportsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -15,11 +15,12 @@ export default function DashboardLayout() {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   const navItems = [
-    { name: 'Dashboard',     path: '/dashboard',  icon: 'mdi:view-dashboard-outline' },
-    { name: 'Clientes',      path: '/clients',    icon: 'mdi:account-group-outline' },
-    { name: 'Presupuestos',  path: '/budgets',    icon: 'mdi:file-document-outline' },
-    { name: 'Plantillas',    path: '/templates',  icon: 'mdi:text-box-multiple-outline' },
-    { name: 'Configuración', path: '/settings',   icon: 'mdi:cog-outline' },
+    { name: 'Proyectos',     path: '/budgets',      icon: 'mdi:file-document-outline' },
+    { name: 'Clientes',      path: '/clients',      icon: 'mdi:account-group-outline' },
+    { name: 'Plantillas',    path: '/templates',    icon: 'mdi:text-box-multiple-outline' },
+    { name: 'Reportes',      path: '/reports',      icon: 'mdi:chart-bar' },
+    { name: 'Configuración', path: '/settings',     icon: 'mdi:cog-outline' },
+    { name: 'Integraciones', path: '/integrations', icon: 'mdi:api' },
   ];
 
   // Colors from secondary palette

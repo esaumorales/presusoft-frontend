@@ -1,8 +1,8 @@
 import { axiosClient } from '../../../core/api/axiosClient';
 
 export const budgetsService = {
-  getAll:       ()          => axiosClient.get('/budgets'),
-  getById:      (id)        => axiosClient.get(`/budgets/${id}`),
+  getAll:       (params)    => axiosClient.get('/budgets', { params }),
+  getById:      (id, currency) => axiosClient.get(`/budgets/${id}`, { params: { currency } }),
   create:       (data)      => axiosClient.post('/budgets', data),
   update:       (id, data)  => axiosClient.patch(`/budgets/${id}`, data),
   remove:       (id)        => axiosClient.delete(`/budgets/${id}`),

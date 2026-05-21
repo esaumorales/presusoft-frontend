@@ -4,9 +4,10 @@ import { Icon } from '@iconify/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { budgetsService } from '../api/budgets.service';
 import { clientsService } from '../../clients/api/clients.service';
+import { templatesService } from '../../templates/api/templates.service';
 import { C, card, STATUS_CFG } from '../../../core/styles/palette';
 
-const EMPTY = { title: '', description: '', clientId: '', currency: 'USD', taxPercentage: 18, validityDays: 15 };
+const EMPTY = { title: '', description: '', clientId: '', templateId: '', currency: 'PEN', taxPercentage: 18, validityDays: 15 };
 
 const th = { padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em', background: C.bg, borderBottom: `1px solid ${C.border}` };
 const td = (extra = {}) => ({ padding: '13px 20px', borderBottom: `1px solid ${C.border2}`, fontSize: 13, color: C.text, ...extra });
@@ -21,9 +22,12 @@ const LABELS   = { all: 'Todos', draft: 'Borrador', sent: 'Enviado', accepted: '
 export default function BudgetsList() {
   const [budgets, setBudgets] = useState([]);
   const [clients, setClients] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterCurrency, setFilterCurrency] = useState('all');
+  const [filterDate, setFilterDate] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
@@ -32,9 +36,14 @@ export default function BudgetsList() {
   const fetch = async () => {
     setLoading(true);
     try {
-      const [bR, cR] = await Promise.allSettled([budgetsService.getAll(), clientsService.getAll()]);
+      const [bR, cR, tR] = await Promise.allSettled([
+        budgetsService.getAll(),
+        clientsService.getAll(),
+        templatesService.getAll()
+      ]);
       if (bR.status === 'fulfilled') setBudgets(bR.value.data?.data || []);
       if (cR.status === 'fulfilled') setClients(cR.value.data?.data || []);
+      if (tR.status === 'fulfilled') setTemplates(tR.value.data?.data || []);
     } finally { setLoading(false); }
   };
 
@@ -48,6 +57,7 @@ export default function BudgetsList() {
     try {
       const payload = { ...form };
       if (payload.clientId === '') delete payload.clientId;
+      if (payload.templateId === '') delete payload.templateId;
       payload.taxPercentage = Number(payload.taxPercentage);
       payload.validityDays  = Number(payload.validityDays);
       await budgetsService.create(payload);
@@ -68,29 +78,97 @@ export default function BudgetsList() {
 
   const filtered = budgets
     .filter(b => filterStatus === 'all' || b.status === filterStatus)
+    .filter(b => filterCurrency === 'all' || b.currency === filterCurrency)
+    .filter(b => {
+      if (filterDate === 'all') return true;
+      const date = new Date(b.createdAt || Date.now());
+      const now = new Date();
+      if (filterDate === 'month') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      if (filterDate === 'year') return date.getFullYear() === now.getFullYear();
+      return true;
+    })
     .filter(b => b.title?.toLowerCase().includes(search.toLowerCase()) || b.client?.name?.toLowerCase().includes(search.toLowerCase()));
+
+  // Summary Metrics
+  const activeCount = budgets.filter(b => ['accepted', 'sent'].includes(b.status)).length;
+  const draftCount = budgets.filter(b => b.status === 'draft').length;
+  const recentChanges = budgets.filter(b => new Date(b.updatedAt || Date.now()) > new Date(Date.now() - 86400000 * 3)).length; // last 3 days
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: C.text }}>Presupuestos</h1>
-          <p style={{ margin: '3px 0 0', fontSize: 13, color: C.muted }}>{budgets.length} presupuestos en total.</p>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: C.text }}>Proyectos y Presupuestos</h1>
+          <p style={{ margin: '3px 0 0', fontSize: 13, color: C.muted }}>Gestiona y analiza tus propuestas comerciales.</p>
         </div>
         <button onClick={() => setShowModal(true)} style={btnPrimary}>
-          <Icon icon="mdi:plus" style={{ fontSize: 16 }} /> Nuevo Presupuesto
+          <Icon icon="mdi:plus" style={{ fontSize: 16 }} /> Nuevo Proyecto
         </button>
       </div>
 
-      {/* Search + filters */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px' }}>
-          <Icon icon="mdi:magnify" style={{ color: C.muted, fontSize: 18, flexShrink: 0 }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar presupuesto o cliente..."
-            style={{ border: 'none', outline: 'none', fontSize: 13, width: '100%', color: C.text, background: 'transparent' }} />
+      {/* Panel de Resumen Rápido */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+        <div style={{ ...card, padding: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon icon="mdi:file-document-multiple-outline" style={{ fontSize: 22 }} />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C.muted }}>Total Presupuestos</p>
+            <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>{budgets.length}</p>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ ...card, padding: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon icon="mdi:check-decagram-outline" style={{ fontSize: 22 }} />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C.muted }}>Proyectos Activos</p>
+            <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>{activeCount}</p>
+          </div>
+        </div>
+        <div style={{ ...card, padding: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon icon="mdi:alert-circle-outline" style={{ fontSize: 22 }} />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C.muted }}>Borradores / Alertas</p>
+            <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>{draftCount}</p>
+          </div>
+        </div>
+        <div style={{ ...card, padding: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: '#f3e8ff', color: '#9333ea', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon icon="mdi:bell-ring-outline" style={{ fontSize: 22 }} />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C.muted }}>Cambios Recientes</p>
+            <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>{recentChanges}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Search + filters */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ ...card, flex: 1, minWidth: 250, display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px' }}>
+            <Icon icon="mdi:magnify" style={{ color: C.muted, fontSize: 18, flexShrink: 0 }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar presupuesto o cliente..."
+              style={{ border: 'none', outline: 'none', fontSize: 13, width: '100%', color: C.text, background: 'transparent' }} />
+          </div>
+          <select value={filterCurrency} onChange={e => setFilterCurrency(e.target.value)} style={{ ...card, padding: '0 14px', fontSize: 13, fontWeight: 600, color: C.text, outline: 'none', cursor: 'pointer', border: `1px solid ${C.border}` }}>
+            <option value="all">Todas las Monedas</option>
+            <option value="PEN">Soles (PEN)</option>
+            <option value="USD">Dólares (USD)</option>
+            <option value="EUR">Euros (EUR)</option>
+          </select>
+          <select value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ ...card, padding: '0 14px', fontSize: 13, fontWeight: 600, color: C.text, outline: 'none', cursor: 'pointer', border: `1px solid ${C.border}` }}>
+            <option value="all">Todas las Fechas</option>
+            <option value="month">Este Mes</option>
+            <option value="year">Este Año</option>
+          </select>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginRight: 4 }}>Estado:</span>
           {STATUSES.map(s => (
             <button key={s} onClick={() => setFilterStatus(s)} style={filterBtn(filterStatus === s)}>{LABELS[s]}</button>
           ))}
@@ -133,7 +211,10 @@ export default function BudgetsList() {
                     <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
                   </td>
                   <td style={td({ color: C.s500 })}>{b.client?.name || '—'}</td>
-                  <td style={{ ...td(), fontWeight: 700 }}>${Number(b.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                  <td style={{ ...td(), fontWeight: 700 }}>
+                    {b.currency === 'PEN' ? 'S/. ' : b.currency === 'EUR' ? '€ ' : '$ '}
+                    {Number(b.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </td>
                   <td style={td()}>
                     <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, color: sc.color, background: sc.bg }}>{sc.label}</span>
                   </td>
@@ -181,6 +262,23 @@ export default function BudgetsList() {
                     <option value="">Sin cliente asignado</option>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Moneda</label>
+                    <select name="currency" value={form.currency} onChange={set} style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 7, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', background: C.white }}>
+                      <option value="PEN">Soles (PEN)</option>
+                      <option value="USD">Dólares (USD)</option>
+                      <option value="EUR">Euros (EUR)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Plantilla Base</label>
+                    <select name="templateId" value={form.templateId} onChange={set} style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 7, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', background: C.white }}>
+                      <option value="">Sin plantilla (Vacío)</option>
+                      {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { templatesService } from '../api/templates.service';
@@ -81,20 +82,36 @@ export default function TemplatesList() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-          {templates.map(t => (
-            <div key={t.id} style={{ ...card, padding: 20, position: 'relative' }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: C.s600, borderRadius: '10px 10px 0 0' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <p style={{ margin: 0, fontWeight: 700, color: C.text, fontSize: 14 }}>{t.name}</p>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button onClick={() => openEdit(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.s500, padding: 3 }}><Icon icon="mdi:pencil-outline" style={{ fontSize: 16 }} /></button>
-                  <button onClick={() => handleDelete(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b91c1c', padding: 3 }}><Icon icon="mdi:trash-can-outline" style={{ fontSize: 16 }} /></button>
+          {templates.map(t => {
+            const modulesCount = t.modules?.length || 0;
+            const tasksCount = t.modules?.reduce((acc, m) => acc + (m.tasks?.length || 0), 0) || 0;
+            return (
+              <div key={t.id} style={{ ...card, padding: 20, position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 180 }}>
+                <div>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: C.s600, borderRadius: '10px 10px 0 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <p style={{ margin: 0, fontWeight: 700, color: C.text, fontSize: 14 }}>{t.name}</p>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <Link to={`/templates/${t.id}`} style={{ color: C.s600, padding: 3, display: 'inline-flex', alignItems: 'center' }} title="Editar Plantilla"><Icon icon="mdi:pencil-outline" style={{ fontSize: 16 }} /></Link>
+                      <button onClick={() => handleDelete(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b91c1c', padding: 3 }}><Icon icon="mdi:trash-can-outline" style={{ fontSize: 16 }} /></button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+                    {t.category && <span style={{ fontSize: 11, fontWeight: 600, color: C.s600, background: C.s100, padding: '2px 8px', borderRadius: 20 }}>{t.category}</span>}
+                    <span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}>
+                      {modulesCount} {modulesCount === 1 ? 'módulo' : 'módulos'} • {tasksCount} {tasksCount === 1 ? 'tarea' : 'tareas'}
+                    </span>
+                  </div>
+                  {t.description && <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</p>}
+                </div>
+                <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Link to={`/templates/${t.id}`} className="btn-secondary" style={{ padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+                    <Icon icon="mdi:cog-outline" /> Estructura
+                  </Link>
                 </div>
               </div>
-              {t.category && <span style={{ fontSize: 11, fontWeight: 600, color: C.s600, background: C.s100, padding: '2px 8px', borderRadius: 20 }}>{t.category}</span>}
-              {t.description && <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{t.description}</p>}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

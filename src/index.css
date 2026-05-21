@@ -125,3 +125,106 @@
     -webkit-backdrop-filter: blur(12px);
   }
 }
+
+/* ── Vista Previa A4 Preview Sheet ── */
+.a4-container {
+  background-color: #f1f5f9;
+  padding: 40px 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+.a4-document {
+  background-color: #ffffff;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 20mm;
+  margin: 0 auto;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  color: #1e2b39;
+  font-size: 13px;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.a4-document h1,
+.a4-document h2,
+.a4-document h3,
+.a4-document h4 {
+  color: #1e2b39;
+}
+
+/* Print Rules */
+@media print {
+  /* Hide UI elements */
+  aside, 
+  header, 
+  nav, 
+  button, 
+  .no-print,
+  .btn-primary,
+  .btn-secondary {
+    display: none !important;
+  }
+
+  /* Reset main layouts and offsets */
+  html, body {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    font-size: 12px !important;
+  }
+
+  /* Flex containers override for standard browser printing */
+  div[style*="display: flex"],
+  .flex {
+    display: flex !important;
+  }
+  
+  /* Ensure parent layout does not constrain print output */
+  div {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+
+  .a4-container {
+    background-color: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    min-height: auto !important;
+  }
+
+  .a4-document {
+    width: 100% !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Force page breaks where needed */
+  .page-break {
+    page-break-before: always;
+  }
+}
+
