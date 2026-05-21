@@ -51,7 +51,9 @@ export default function BudgetEditor() {
   const [aiModal, setAiModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState(null); // { detectedType, totalModules }
+  const [aiResult, setAiResult] = useState(null);
+  const [aiMarket, setAiMarket] = useState('peru');      // peru | latam | espana | usa
+  const [aiSeniority, setAiSeniority] = useState('mid'); // junior | mid | senior
 
   // Toast notification
   const [toast, setToast] = useState(null); // { msg, type: 'success'|'error' }
@@ -408,11 +410,13 @@ export default function BudgetEditor() {
     setAiLoading(true);
     setAiResult(null);
     try {
-      const res = await aiService.generateBudget(aiPrompt, id);
+      const res = await aiService.generateBudget(aiPrompt, id, aiMarket, aiSeniority);
       const data = res.data?.data;
       setAiResult(data);
       await fetchBudget();
-      showToast(`✅ Modelo generó ${data?.totalModules} módulos para tipo "${data?.detectedType}"`);
+      const adj = data?.financialAdjustments;
+      const adjText = adj ? ` | Contingencia ${adj.contingency}% · Margen ${adj.margin}%` : '';
+      showToast(`✅ ${data?.totalModules} módulos generados · ${data?.marketLabel} · ${data?.seniorityLabel}`);
     } catch (err) {
       showToast(err.response?.data?.message || 'Error al generar módulos', 'error');
     } finally {
@@ -592,7 +596,7 @@ export default function BudgetEditor() {
             <div className="flex gap-2 flex-wrap">
               {/* Botón IA - siempre visible */}
               <button
-                onClick={() => { setAiModal(true); setAiPrompt(''); setAiResult(null); }}
+                onClick={() => { setAiModal(true); setAiPrompt(''); setAiResult(null); setAiMarket('peru'); setAiSeniority('mid'); }}
                 style={{ background: 'linear-gradient(to right, #7c3aed, #4f46e5)', color: 'white', border: 'none' }}
                 className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-semibold cursor-pointer hover:opacity-90 transition-opacity"
               >
@@ -1705,6 +1709,50 @@ export default function BudgetEditor() {
 
               {/* Body */}
               <div className="p-6 space-y-4">
+                {/* Selectors: Mercado y Seniority */}
+                <div className="grid grid-cols-2 gap-3 bg-violet-50/50 p-4 rounded-xl border border-violet-100">
+                  <div>
+                    <label className="block text-[11px] font-bold text-violet-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Icon icon="mdi:earth" className="text-sm" /> Mercado / Región
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={aiMarket}
+                        onChange={e => setAiMarket(e.target.value)}
+                        className="w-full bg-white border border-violet-200 text-secondary-800 text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block p-2.5 shadow-sm appearance-none pr-8 cursor-pointer hover:border-violet-300 transition-colors"
+                      >
+                        <option value="peru">🇵🇪 Perú (S/ 2k - 10k+ mensual)</option>
+                        <option value="latam"> Latam ($20 - $75 USD/h)</option>
+                        <option value="espana">🇪🇸 España (€30 - €110/h)</option>
+                        <option value="usa">🇺🇸 USA/Europa ($40 - $150+/h)</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-violet-500">
+                        <Icon icon="mdi:chevron-down" className="text-lg" />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-violet-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Icon icon="mdi:account-hard-hat" className="text-sm" /> Nivel del Equipo
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={aiSeniority}
+                        onChange={e => setAiSeniority(e.target.value)}
+                        className="w-full bg-white border border-violet-200 text-secondary-800 text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block p-2.5 shadow-sm appearance-none pr-8 cursor-pointer hover:border-violet-300 transition-colors"
+                      >
+                        <option value="junior">Junior (0–2 años exp.)</option>
+                        <option value="mid">Intermedio (2–5 años exp.)</option>
+                        <option value="senior">Senior (5+ años exp.)</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-violet-500">
+                        <Icon icon="mdi:chevron-down" className="text-lg" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
                 <div>
                   <label className="block text-xs font-bold text-secondary-500 uppercase tracking-wider mb-2">
                     Descripción del Proyecto
@@ -1727,22 +1775,51 @@ export default function BudgetEditor() {
 
                 {/* Result preview */}
                 {aiResult && (
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-2">
                       <Icon icon="mdi:check-circle" className="text-green-600 text-xl" />
-                      <span className="font-bold text-green-800 text-sm">¡Módulos generados exitosamente!</span>
+                      <span className="font-bold text-green-800 text-sm">¡Presupuesto generado con éxito!</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
+
+                    {/* Row 1: Tipo, Módulos */}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="bg-white rounded-lg p-3 border border-green-100">
                         <p className="text-secondary-400 uppercase font-bold tracking-wide mb-1">Tipo Detectado</p>
-                        <p className="font-bold text-secondary-900 capitalize text-base">{aiResult.detectedType}</p>
+                        <p className="font-bold text-secondary-900 capitalize text-sm">{aiResult.detectedType}</p>
                       </div>
                       <div className="bg-white rounded-lg p-3 border border-green-100">
                         <p className="text-secondary-400 uppercase font-bold tracking-wide mb-1">Módulos Creados</p>
-                        <p className="font-bold text-secondary-900 text-base">{aiResult.totalModules}</p>
+                        <p className="font-bold text-secondary-900 text-sm">{aiResult.totalModules} módulos</p>
                       </div>
                     </div>
-                    <p className="text-xs text-green-700 mt-2">Los módulos ya fueron insertados en tu presupuesto.</p>
+
+                    {/* Row 2: Mercado y Seniority aplicados */}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                        <p className="text-blue-400 uppercase font-bold tracking-wide mb-1">Mercado</p>
+                        <p className="font-bold text-blue-800 text-sm">{aiResult.marketLabel}</p>
+                      </div>
+                      <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
+                        <p className="text-amber-500 uppercase font-bold tracking-wide mb-1">Nivel del Equipo</p>
+                        <p className="font-bold text-amber-800 text-sm">{aiResult.seniorityLabel}</p>
+                      </div>
+                    </div>
+
+                    {/* Row 3: Ajustes financieros */}
+                    {aiResult.financialAdjustments && (
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="bg-violet-50 rounded-lg p-3 border border-violet-100">
+                          <p className="text-violet-400 uppercase font-bold tracking-wide mb-1">Contingencia</p>
+                          <p className="font-bold text-violet-800 text-sm">{aiResult.financialAdjustments.contingency}%</p>
+                        </div>
+                        <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                          <p className="text-indigo-400 uppercase font-bold tracking-wide mb-1">Margen Comercial</p>
+                          <p className="font-bold text-indigo-800 text-sm">{aiResult.financialAdjustments.margin}%</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-green-700">Costos, módulos y ajustes financieros aplicados en el presupuesto.</p>
                   </div>
                 )}
 
