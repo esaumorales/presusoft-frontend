@@ -52,8 +52,15 @@ export default function BudgetEditor() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
-  const [aiMarket, setAiMarket] = useState('peru');      // peru | latam | espana | usa
-  const [aiSeniority, setAiSeniority] = useState('mid'); // junior | mid | senior
+  const [aiMarket, setAiMarket] = useState('peru');
+  const [aiScope, setAiScope] = useState('full');
+  
+  // Specific Seniorities
+  const [aiSenUI, setAiSenUI] = useState('mid');
+  const [aiSenFront, setAiSenFront] = useState('mid');
+  const [aiSenBack, setAiSenBack] = useState('mid');
+  const [aiSenDB, setAiSenDB] = useState('mid');
+  const [aiSenInfra, setAiSenInfra] = useState('mid');
 
   // Toast notification
   const [toast, setToast] = useState(null); // { msg, type: 'success'|'error' }
@@ -410,7 +417,13 @@ export default function BudgetEditor() {
     setAiLoading(true);
     setAiResult(null);
     try {
-      const res = await aiService.generateBudget(aiPrompt, id, aiMarket, aiSeniority);
+      const res = await aiService.generateBudget(aiPrompt, id, aiMarket, aiScope, {
+        ui: aiSenUI,
+        front: aiSenFront,
+        back: aiSenBack,
+        db: aiSenDB,
+        infra: aiSenInfra
+      });
       const data = res.data?.data;
       setAiResult(data);
       await fetchBudget();
@@ -596,8 +609,12 @@ export default function BudgetEditor() {
             <div className="flex gap-2 flex-wrap">
               {/* Botón IA - siempre visible */}
               <button
-                onClick={() => { setAiModal(true); setAiPrompt(''); setAiResult(null); setAiMarket('peru'); setAiSeniority('mid'); }}
-                style={{ background: 'linear-gradient(to right, #7c3aed, #4f46e5)', color: 'white', border: 'none' }}
+                onClick={() => { 
+                  setAiModal(true); setAiPrompt(''); setAiResult(null); 
+                  setAiMarket('peru'); setAiScope('full'); 
+                  setAiSenUI('mid'); setAiSenFront('mid'); setAiSenBack('mid'); setAiSenDB('mid'); setAiSenInfra('mid');
+                }}
+                style={{ background: '#4f46e5', color: 'white', border: 'none' }}
                 className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-semibold cursor-pointer hover:opacity-90 transition-opacity"
               >
                 <Icon icon="mdi:brain" /> Generar con Modelo
@@ -1688,10 +1705,10 @@ export default function BudgetEditor() {
           >
             <motion.div
               initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
-              className="bg-white rounded-2xl shadow-2xl border border-secondary-200 w-full max-w-lg overflow-hidden"
+              className="bg-white rounded-2xl shadow-2xl border border-secondary-200 w-full max-w-3xl overflow-hidden"
             >
               {/* Header */}
-              <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-6 text-white">
+              <div className=" bg-indigo-600 p-6 text-white">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                     <Icon icon="mdi:brain" className="text-2xl" />
@@ -1709,46 +1726,80 @@ export default function BudgetEditor() {
 
               {/* Body */}
               <div className="p-6 space-y-4">
-                {/* Selectors: Mercado y Seniority */}
-                <div className="grid grid-cols-2 gap-3 bg-violet-50/50 p-4 rounded-xl border border-violet-100">
+                {/* Selectors: Alcance y Mercado */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-violet-50/50 p-4 rounded-t-xl border border-violet-100 border-b-0">
                   <div>
                     <label className="block text-[11px] font-bold text-violet-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                      <Icon icon="mdi:earth" className="text-sm" /> Mercado / Región
+                      <Icon icon="mdi:target" className="text-sm" /> Alcance
                     </label>
-                    <div className="relative">
-                      <select
-                        value={aiMarket}
-                        onChange={e => setAiMarket(e.target.value)}
-                        className="w-full bg-white border border-violet-200 text-secondary-800 text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block p-2.5 shadow-sm appearance-none pr-8 cursor-pointer hover:border-violet-300 transition-colors"
-                      >
-                        <option value="peru">🇵🇪 Perú (S/ 2k - 10k+ mensual)</option>
-                        <option value="latam"> Latam ($20 - $75 USD/h)</option>
-                        <option value="espana">🇪🇸 España (€30 - €110/h)</option>
-                        <option value="usa">🇺🇸 USA/Europa ($40 - $150+/h)</option>
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-violet-500">
-                        <Icon icon="mdi:chevron-down" className="text-lg" />
-                      </div>
-                    </div>
+                    <select
+                      value={aiScope}
+                      onChange={e => setAiScope(e.target.value)}
+                      className="w-full bg-white border border-violet-200 text-secondary-800 text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 p-2 shadow-sm"
+                    >
+                      <option value="full">Fullstack (Todo)</option>
+                      <option value="frontend">Solo Frontend/UI</option>
+                      <option value="backend">Solo Backend/Infra/BD</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-violet-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                      <Icon icon="mdi:account-hard-hat" className="text-sm" /> Nivel del Equipo
+                      <Icon icon="mdi:earth" className="text-sm" /> Mercado
                     </label>
-                    <div className="relative">
-                      <select
-                        value={aiSeniority}
-                        onChange={e => setAiSeniority(e.target.value)}
-                        className="w-full bg-white border border-violet-200 text-secondary-800 text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block p-2.5 shadow-sm appearance-none pr-8 cursor-pointer hover:border-violet-300 transition-colors"
-                      >
-                        <option value="junior">Junior (0–2 años exp.)</option>
-                        <option value="mid">Intermedio (2–5 años exp.)</option>
-                        <option value="senior">Senior (5+ años exp.)</option>
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-violet-500">
-                        <Icon icon="mdi:chevron-down" className="text-lg" />
-                      </div>
-                    </div>
+                    <select
+                      value={aiMarket}
+                      onChange={e => setAiMarket(e.target.value)}
+                      className="w-full bg-white border border-violet-200 text-secondary-800 text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 p-2 shadow-sm"
+                    >
+                      <option value="peru">🇵🇪 Perú</option>
+                      <option value="latam">🌎 Latam</option>
+                      <option value="espana">🇪🇸 España</option>
+                      <option value="usa">🇺🇸 USA/Europa</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Team Seniorities */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-violet-50/30 p-4 rounded-b-xl border border-violet-100">
+                  <div className={aiScope === 'backend' ? 'opacity-40 pointer-events-none' : ''}>
+                    <label className="block text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Icon icon="mdi:palette" /> UI/UX
+                    </label>
+                    <select disabled={aiScope === 'backend'} value={aiSenUI} onChange={e => setAiSenUI(e.target.value)} className="w-full bg-white border border-violet-200 text-[13px] rounded-lg p-1.5">
+                      <option value="junior">Junior</option><option value="mid">Mid</option><option value="senior">Senior</option>
+                    </select>
+                  </div>
+                  <div className={aiScope === 'backend' ? 'opacity-40 pointer-events-none' : ''}>
+                    <label className="block text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Icon icon="mdi:monitor-dashboard" /> Frontend
+                    </label>
+                    <select disabled={aiScope === 'backend'} value={aiSenFront} onChange={e => setAiSenFront(e.target.value)} className="w-full bg-white border border-violet-200 text-[13px] rounded-lg p-1.5">
+                      <option value="junior">Junior</option><option value="mid">Mid</option><option value="senior">Senior</option>
+                    </select>
+                  </div>
+                  <div className={aiScope === 'frontend' ? 'opacity-40 pointer-events-none' : ''}>
+                    <label className="block text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Icon icon="mdi:server" /> Backend
+                    </label>
+                    <select disabled={aiScope === 'frontend'} value={aiSenBack} onChange={e => setAiSenBack(e.target.value)} className="w-full bg-white border border-violet-200 text-[13px] rounded-lg p-1.5">
+                      <option value="junior">Junior</option><option value="mid">Mid</option><option value="senior">Senior</option>
+                    </select>
+                  </div>
+                  <div className={aiScope === 'frontend' ? 'opacity-40 pointer-events-none' : ''}>
+                    <label className="block text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Icon icon="mdi:database" /> Base Datos
+                    </label>
+                    <select disabled={aiScope === 'frontend'} value={aiSenDB} onChange={e => setAiSenDB(e.target.value)} className="w-full bg-white border border-violet-200 text-[13px] rounded-lg p-1.5">
+                      <option value="junior">Junior</option><option value="mid">Mid</option><option value="senior">Senior</option>
+                    </select>
+                  </div>
+                  <div className={aiScope === 'frontend' ? 'opacity-40 pointer-events-none' : ''}>
+                    <label className="block text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Icon icon="mdi:cloud" /> Infra
+                    </label>
+                    <select disabled={aiScope === 'frontend'} value={aiSenInfra} onChange={e => setAiSenInfra(e.target.value)} className="w-full bg-white border border-violet-200 text-[13px] rounded-lg p-1.5">
+                      <option value="junior">Junior</option><option value="mid">Mid</option><option value="senior">Senior</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1794,14 +1845,38 @@ export default function BudgetEditor() {
                     </div>
 
                     {/* Row 2: Mercado y Seniority aplicados */}
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                        <p className="text-blue-400 uppercase font-bold tracking-wide mb-1">Mercado</p>
-                        <p className="font-bold text-blue-800 text-sm">{aiResult.marketLabel}</p>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100 flex-1">
+                        <p className="text-emerald-500 uppercase font-bold tracking-wide mb-1 text-[10px]">Alcance</p>
+                        <p className="font-bold text-emerald-800 text-xs">{aiResult.scopeLabel}</p>
                       </div>
-                      <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
-                        <p className="text-amber-500 uppercase font-bold tracking-wide mb-1">Nivel del Equipo</p>
-                        <p className="font-bold text-amber-800 text-sm">{aiResult.seniorityLabel}</p>
+                      <div className="bg-blue-50 rounded-lg p-2 border border-blue-100 flex-1">
+                        <p className="text-blue-400 uppercase font-bold tracking-wide mb-1 text-[10px]">Mercado</p>
+                        <p className="font-bold text-blue-800 text-xs">{aiResult.marketLabel}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Row 3: Team Breakdown */}
+                    <div className="grid grid-cols-5 gap-2 mt-2">
+                      <div className="bg-amber-50 rounded p-1.5 border border-amber-100 text-center">
+                        <p className="text-amber-500 font-bold text-[9px] uppercase">UI/UX</p>
+                        <p className="font-bold text-amber-800 text-[11px] capitalize">{aiResult.team?.ui || 'N/A'}</p>
+                      </div>
+                      <div className="bg-orange-50 rounded p-1.5 border border-orange-100 text-center">
+                        <p className="text-orange-500 font-bold text-[9px] uppercase">Front</p>
+                        <p className="font-bold text-orange-800 text-[11px] capitalize">{aiResult.team?.front || 'N/A'}</p>
+                      </div>
+                      <div className="bg-indigo-50 rounded p-1.5 border border-indigo-100 text-center">
+                        <p className="text-indigo-500 font-bold text-[9px] uppercase">Back</p>
+                        <p className="font-bold text-indigo-800 text-[11px] capitalize">{aiResult.team?.back || 'N/A'}</p>
+                      </div>
+                      <div className="bg-cyan-50 rounded p-1.5 border border-cyan-100 text-center">
+                        <p className="text-cyan-500 font-bold text-[9px] uppercase">BD</p>
+                        <p className="font-bold text-cyan-800 text-[11px] capitalize">{aiResult.team?.db || 'N/A'}</p>
+                      </div>
+                      <div className="bg-slate-50 rounded p-1.5 border border-slate-200 text-center">
+                        <p className="text-slate-500 font-bold text-[9px] uppercase">Infra</p>
+                        <p className="font-bold text-slate-800 text-[11px] capitalize">{aiResult.team?.infra || 'N/A'}</p>
                       </div>
                     </div>
 
