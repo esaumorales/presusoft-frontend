@@ -10,6 +10,7 @@ import { dependenciesService } from '../api/dependencies.service';
 import { providersService } from '../api/providers.service';
 import { versionsService } from '../api/versions.service';
 import { exportsService } from '../api/exports.service';
+import { aiService } from '../api/ai.service';
 import { templatesService } from '../../templates/api/templates.service';
 import { C, card, STATUS_CFG } from '../../../core/styles/palette';
 
@@ -45,6 +46,15 @@ export default function BudgetEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [exportingFormat, setExportingFormat] = useState(null);
+
+  // AI Model States
+  const [aiModal, setAiModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState(null); // { detectedType, totalModules }
+
+  // Toast notification
+  const [toast, setToast] = useState(null); // { msg, type: 'success'|'error' }
 
   // Catalogs
   const [providers, setProviders] = useState([]);
@@ -387,6 +397,29 @@ export default function BudgetEditor() {
     }
   };
 
+  /* ---- AI MODEL GENERATION ---- */
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const res = await aiService.generateBudget(aiPrompt, id);
+      const data = res.data?.data;
+      setAiResult(data);
+      await fetchBudget();
+      showToast(`✅ Modelo generó ${data?.totalModules} módulos para tipo "${data?.detectedType}"`);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Error al generar módulos', 'error');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   /* ---- PREMIUM EXPORTS ---- */
   const handleExport = async (format) => {
     setExportingFormat(format);
@@ -416,6 +449,7 @@ export default function BudgetEditor() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      showToast(`📥 Archivo "${filename}" descargado en tu carpeta de Descargas`);
     } catch (err) {
       alert(err.response?.data?.message || 'Error al generar o descargar el archivo');
     } finally {
@@ -555,18 +589,29 @@ export default function BudgetEditor() {
         <div className="lg:col-span-2 space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-bold text-secondary-900">Módulos del Proyecto</h2>
-            {!isLocked && (
-              <div className="flex gap-2">
-                {modules.length === 0 && budget?.status === 'draft' && (
-                  <button onClick={() => setApplyModal(true)} className="btn-secondary text-secondary-600 flex items-center gap-1.5 text-sm">
-                    <Icon icon="mdi:text-box-multiple-outline" /> Aplicar Plantilla
+            <div className="flex gap-2 flex-wrap">
+              {/* Botón IA - siempre visible */}
+              <button
+                onClick={() => { setAiModal(true); setAiPrompt(''); setAiResult(null); }}
+                style={{ background: 'linear-gradient(to right, #7c3aed, #4f46e5)', color: 'white', border: 'none' }}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-semibold cursor-pointer hover:opacity-90 transition-opacity"
+              >
+                <Icon icon="mdi:brain" /> Generar con Modelo
+              </button>
+
+              {!isLocked && (
+                <>
+                  {modules.length === 0 && budget?.status === 'draft' && (
+                    <button onClick={() => setApplyModal(true)} className="btn-secondary text-secondary-600 flex items-center gap-1.5 text-sm">
+                      <Icon icon="mdi:text-box-multiple-outline" /> Aplicar Plantilla
+                    </button>
+                  )}
+                  <button onClick={openAddModule} className="btn-primary flex items-center gap-1.5 text-sm">
+                    <Icon icon="mdi:plus" /> Añadir Módulo
                   </button>
-                )}
-                <button onClick={openAddModule} className="btn-primary flex items-center gap-1.5 text-sm">
-                  <Icon icon="mdi:plus" /> Añadir Módulo
-                </button>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
 
           {modules.length === 0 ? (
@@ -1628,8 +1673,130 @@ export default function BudgetEditor() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── AI MODEL MODAL ── */}
+      <AnimatePresence>
+        {aiModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setAiModal(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl border border-secondary-200 w-full max-w-lg overflow-hidden"
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-6 text-white">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Icon icon="mdi:brain" className="text-2xl" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold">Generar con Modelo Predictivo</h2>
+                    <p className="text-xs text-violet-200">Modelo entrenado localmente · Sin APIs externas</p>
+                  </div>
+                </div>
+                <p className="text-sm text-violet-100 mt-1">
+                  Describe tu proyecto en texto libre. El modelo clasificará el tipo y generará
+                  automáticamente módulos, tareas y estimaciones de horas.
+                </p>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-secondary-500 uppercase tracking-wider mb-2">
+                    Descripción del Proyecto
+                  </label>
+                  <textarea
+                    value={aiPrompt}
+                    onChange={e => setAiPrompt(e.target.value)}
+                    rows={4}
+                    placeholder={
+                      'Ej: "Aplicativo web tipo e-commerce para venta de ropa con carrito y pagos"\n' +
+                      '    "App móvil de delivery para iOS y Android"\n' +
+                      '    "Plataforma SaaS de gestión de inventarios"'
+                    }
+                    className="input-base resize-none text-sm leading-relaxed"
+                  />
+                  <p className="text-xs text-secondary-400 mt-1.5">
+                    Tipos detectables: <span className="font-semibold text-secondary-600">web · e-commerce · app móvil · saas · api · e-learning · reservas</span>
+                  </p>
+                </div>
+
+                {/* Result preview */}
+                {aiResult && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon icon="mdi:check-circle" className="text-green-600 text-xl" />
+                      <span className="font-bold text-green-800 text-sm">¡Módulos generados exitosamente!</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-white rounded-lg p-3 border border-green-100">
+                        <p className="text-secondary-400 uppercase font-bold tracking-wide mb-1">Tipo Detectado</p>
+                        <p className="font-bold text-secondary-900 capitalize text-base">{aiResult.detectedType}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border border-green-100">
+                        <p className="text-secondary-400 uppercase font-bold tracking-wide mb-1">Módulos Creados</p>
+                        <p className="font-bold text-secondary-900 text-base">{aiResult.totalModules}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-green-700 mt-2">Los módulos ya fueron insertados en tu presupuesto.</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => setAiModal(false)}
+                    className="btn-secondary flex-1"
+                  >
+                    {aiResult ? 'Cerrar' : 'Cancelar'}
+                  </button>
+                  {!aiResult && (
+                    <button
+                      onClick={handleAIGenerate}
+                      disabled={aiLoading || !aiPrompt.trim()}
+                      className="btn-primary flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-none flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {aiLoading ? (
+                        <><Icon icon="mdi:loading" className="animate-spin text-lg" /> Procesando...</>
+                      ) : (
+                        <><Icon icon="mdi:brain" /> Generar Módulos</>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── TOAST NOTIFICATION ── */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 60, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 60, scale: 0.95 }}
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-sm font-semibold ${
+              toast.type === 'error'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-900 text-white'
+            }`}
+          >
+            <Icon icon={toast.type === 'error' ? 'mdi:alert-circle' : 'mdi:check-circle'} className="text-xl flex-shrink-0" />
+            <span>{toast.msg}</span>
+            <button onClick={() => setToast(null)} className="ml-2 opacity-60 hover:opacity-100">
+              <Icon icon="mdi:close" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
 
 
