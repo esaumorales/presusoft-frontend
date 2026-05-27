@@ -12,6 +12,7 @@ import { versionsService } from '../api/versions.service';
 import { exportsService } from '../api/exports.service';
 import { aiService } from '../api/ai.service';
 import { templatesService } from '../../templates/api/templates.service';
+import { companiesService } from '../../settings/api/companies.service';
 import { C, card, STATUS_CFG } from '../../../core/styles/palette';
 
 const parseMetadata = (desc) => {
@@ -54,7 +55,7 @@ export default function BudgetEditor() {
   const [aiResult, setAiResult] = useState(null);
   const [aiMarket, setAiMarket] = useState('peru');
   const [aiScope, setAiScope] = useState('full');
-  
+
   // Specific Seniorities
   const [aiSenUI, setAiSenUI] = useState('mid');
   const [aiSenFront, setAiSenFront] = useState('mid');
@@ -69,6 +70,7 @@ export default function BudgetEditor() {
   const [providers, setProviders] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [versions, setVersions] = useState([]);
+  const [company, setCompany] = useState(null);
 
   // Sliders local state
   const [localPercentages, setLocalPercentages] = useState({
@@ -125,14 +127,16 @@ export default function BudgetEditor() {
 
   const fetchCatalogsAndVersions = async () => {
     try {
-      const [provRes, tempRes, verRes] = await Promise.allSettled([
+      const [provRes, tempRes, verRes, compRes] = await Promise.allSettled([
         providersService.getAll(),
         templatesService.getAll(),
-        versionsService.getByBudgetId(id)
+        versionsService.getByBudgetId(id),
+        companiesService.getAll()
       ]);
       if (provRes.status === 'fulfilled') setProviders(provRes.value.data?.data || []);
       if (tempRes.status === 'fulfilled') setTemplates(tempRes.value.data?.data || []);
       if (verRes.status === 'fulfilled') setVersions(verRes.value.data?.data || []);
+      if (compRes.status === 'fulfilled' && compRes.value.data?.data?.length > 0) setCompany(compRes.value.data.data[0]);
     } catch (e) {
       console.error(e);
     }
@@ -538,22 +542,20 @@ export default function BudgetEditor() {
           <div className="flex bg-secondary-100 p-1 rounded-lg border border-secondary-200">
             <button
               onClick={() => setViewMode('edit')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-                viewMode === 'edit'
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'edit'
                   ? 'bg-white text-secondary-900 shadow-sm'
                   : 'text-secondary-500 hover:text-secondary-700'
-              }`}
+                }`}
             >
               <Icon icon="mdi:pencil-outline" className="text-base" />
               Editor
             </button>
             <button
               onClick={() => setViewMode('preview')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-                viewMode === 'preview'
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'preview'
                   ? 'bg-white text-secondary-900 shadow-sm'
                   : 'text-secondary-500 hover:text-secondary-700'
-              }`}
+                }`}
             >
               <Icon icon="mdi:eye-outline" className="text-base" />
               Vista Previa
@@ -602,336 +604,336 @@ export default function BudgetEditor() {
       {/* Main Grid: Workspace Left (70%) + Settings Right (30%) */}
       {viewMode === 'edit' ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left: Modules, Tasks, Dependencies */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-bold text-secondary-900">Módulos del Proyecto</h2>
-            <div className="flex gap-2 flex-wrap">
-              {/* Botón IA - siempre visible */}
-              <button
-                onClick={() => { 
-                  setAiModal(true); setAiPrompt(''); setAiResult(null); 
-                  setAiMarket('peru'); setAiScope('full'); 
-                  setAiSenUI('mid'); setAiSenFront('mid'); setAiSenBack('mid'); setAiSenDB('mid'); setAiSenInfra('mid');
-                }}
-                style={{ background: '#4f46e5', color: 'white', border: 'none' }}
-                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-semibold cursor-pointer hover:opacity-90 transition-opacity"
-              >
-                <Icon icon="mdi:brain" /> Generar con Modelo
-              </button>
-
-              {!isLocked && (
-                <>
-                  {modules.length === 0 && budget?.status === 'draft' && (
-                    <button onClick={() => setApplyModal(true)} className="btn-secondary text-secondary-600 flex items-center gap-1.5 text-sm">
-                      <Icon icon="mdi:text-box-multiple-outline" /> Aplicar Plantilla
-                    </button>
-                  )}
-                  <button onClick={openAddModule} className="btn-primary flex items-center gap-1.5 text-sm">
-                    <Icon icon="mdi:plus" /> Añadir Módulo
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {modules.length === 0 ? (
-            <div className="card p-12 text-center border-dashed border-2 border-secondary-300">
-              <Icon icon="mdi:view-grid-plus-outline" className="text-5xl text-secondary-300 mx-auto mb-3" />
-              <p className="text-secondary-500 font-semibold">Este presupuesto no tiene módulos.</p>
-              <p className="text-xs text-secondary-400 mt-1 mb-6">Añade un módulo personalizado o aplica una plantilla base.</p>
-              {!isLocked && (
-                <div className="flex justify-center gap-3">
-                  {budget?.status === 'draft' && (
-                    <button onClick={() => setApplyModal(true)} className="btn-secondary flex items-center gap-1.5 text-sm">
-                      <Icon icon="mdi:text-box-multiple-outline" /> Cargar Plantilla
-                    </button>
-                  )}
-                  <button onClick={openAddModule} className="btn-primary flex items-center gap-1.5 text-sm">
-                    <Icon icon="mdi:plus" /> Crear Módulo
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {modules.map((mod) => (
-                <motion.div key={mod.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card overflow-hidden">
-                  {/* Module Header */}
-                  <div className="flex items-center justify-between px-6 py-3.5 bg-secondary-50/50 border-b border-secondary-100">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-secondary-200 flex items-center justify-center">
-                        <Icon icon="mdi:folder-outline" className="text-secondary-700 text-lg" />
-                      </div>
-                      <div>
-                        <span className="font-bold text-secondary-900">{mod.name}</span>
-                        <p className="text-[10px] text-secondary-400 font-medium tracking-wider uppercase mt-0.5">Subtotal: {symbol} {Number(mod.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                      </div>
-                    </div>
-                    {!isLocked && (
-                      <div className="flex gap-0.5">
-                        <button onClick={() => openAddTask(mod.id)} className="p-1.5 text-secondary-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors" title="Añadir tarea">
-                          <Icon icon="mdi:plus" className="text-lg" />
-                        </button>
-                        <button onClick={() => openAddDependency(mod.id)} className="p-1.5 text-secondary-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Añadir dependencia SaaS">
-                          <Icon icon="mdi:api" className="text-lg" />
-                        </button>
-                        <button onClick={() => openEditModule(mod)} className="p-1.5 text-secondary-400 hover:text-secondary-700 rounded-lg hover:bg-secondary-100 transition-colors">
-                          <Icon icon="mdi:pencil-outline" className="text-base" />
-                        </button>
-                        <button onClick={() => deleteModule(mod.id)} className="p-1.5 text-secondary-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors">
-                          <Icon icon="mdi:trash-can-outline" className="text-base" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Tasks Sub-list */}
-                  <div className="p-4 border-b border-secondary-50">
-                    <div className="flex items-center gap-1.5 mb-2 px-2 text-xs font-bold text-secondary-400 tracking-wide uppercase">
-                      <Icon icon="mdi:clipboard-text-play-outline" /> Tareas Estimadas
-                    </div>
-                    {(!mod.tasks || mod.tasks.length === 0) ? (
-                      <p className="px-6 py-3 text-xs text-secondary-400 italic">Sin tareas estimadas en este módulo.</p>
-                    ) : (
-                      <div className="divide-y divide-secondary-100 border border-secondary-100 rounded-lg overflow-hidden bg-white">
-                        {mod.tasks.map(task => {
-                          const meta = parseMetadata(task.description);
-                          return (
-                          <div key={task.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-secondary-50/20 transition-colors">
-                            <div className="flex-1 pr-4">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <p className="text-sm font-semibold text-secondary-800">{task.name}</p>
-                                {meta.priority && meta.priority !== 'Media' && (
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${meta.priority === 'Alta' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                    {meta.priority}
-                                  </span>
-                                )}
-                                {meta.role && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 uppercase">
-                                    {meta.role}
-                                  </span>
-                                )}
-                                {meta.dependsOn && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 flex items-center gap-0.5" title={`Depende de tarea ID: ${meta.dependsOn}`}>
-                                    <Icon icon="mdi:link-variant" /> Dependencia
-                                  </span>
-                                )}
-                              </div>
-                              {meta.cleanDesc && <p className="text-xs text-secondary-400 line-clamp-1 mt-0.5">{meta.cleanDesc}</p>}
-                              <p className="text-[10px] text-secondary-500 font-mono mt-1">
-                                {task.hours ? `${task.hours}h × ${symbol}${task.hourlyRate}/h` : `Cant: ${task.quantity} × ${symbol}${task.unitPrice}`}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <span className="font-bold text-secondary-900 text-sm">
-                                {symbol} {Number(task.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                              </span>
-                              {!isLocked && (
-                                <div className="flex gap-0.5">
-                                  <button onClick={() => openEditTask(task, mod.id)} className="p-1 text-secondary-400 hover:text-blue-600 rounded transition-colors">
-                                    <Icon icon="mdi:pencil-outline" className="text-sm" />
-                                  </button>
-                                  <button onClick={() => deleteTask(task.id)} className="p-1 text-secondary-400 hover:text-red-600 rounded transition-colors">
-                                    <Icon icon="mdi:trash-can-outline" className="text-sm" />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Dependencies (SaaS) Sub-list */}
-                  <div className="p-4 bg-secondary-50/20">
-                    <div className="flex items-center gap-1.5 mb-2 px-2 text-xs font-bold text-secondary-400 tracking-wide uppercase">
-                      <Icon icon="mdi:cloud-outline" /> Dependencias Externas (SaaS / APIs)
-                    </div>
-                    {(!mod.dependencies || mod.dependencies.length === 0) ? (
-                      <p className="px-6 py-3 text-xs text-secondary-400 italic">Sin dependencias externas registradas.</p>
-                    ) : (
-                      <div className="divide-y divide-secondary-100 border border-secondary-100 rounded-lg overflow-hidden bg-white">
-                        {mod.dependencies.map(dep => (
-                          <div key={dep.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-secondary-50/20 transition-colors">
-                            <div className="flex-1 pr-4">
-                              <p className="text-sm font-semibold text-secondary-800">{dep.provider?.name || 'SaaS'}</p>
-                              <p className="text-xs text-secondary-500 mt-0.5">
-                                Plan: <span className="font-medium text-secondary-700">{dep.plan?.name || 'Personalizado'}</span> · Recursos: {dep.quantity} · Billed: {dep.plan?.billingCycle === 'annual' ? 'Anual' : 'Mensual'}
-                              </p>
-                              {dep.plan?.description && <p className="text-[10px] text-secondary-400 mt-0.5">{dep.plan.description}</p>}
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <span className="font-bold text-secondary-900 text-sm">
-                                {symbol} {Number(dep.cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                              </span>
-                              {!isLocked && (
-                                <div className="flex gap-0.5">
-                                  <button onClick={() => openEditDependency(dep, mod.id)} className="p-1 text-secondary-400 hover:text-blue-600 rounded transition-colors">
-                                    <Icon icon="mdi:pencil-outline" className="text-sm" />
-                                  </button>
-                                  <button onClick={() => handleDeleteDependency(dep.id)} className="p-1 text-secondary-400 hover:text-red-600 rounded transition-colors">
-                                    <Icon icon="mdi:trash-can-outline" className="text-sm" />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Right: Summary, Settings, Versions, Exports */}
-        <div className="space-y-6">
-          {/* Totals Summary */}
-          <div className="card p-6 bg-gradient-to-br from-secondary-900 to-secondary-800 text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
-              <Icon icon="mdi:calculator" className="text-9xl" />
-            </div>
-
-            <h3 className="font-bold text-xs uppercase tracking-widest text-secondary-400 mb-4">Resumen de Totales</h3>
-            <div className="space-y-3 font-medium text-sm">
-              <div className="flex justify-between border-b border-white/10 pb-2">
-                <span className="text-secondary-300">Subtotal Módulos</span>
-                <span>{symbol} {Number(budget?.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/10 pb-2">
-                <span className="text-secondary-300">Contingencia ({budget?.contingencyPercentage}%)</span>
-                <span>{symbol} {Number(budget?.contingencyAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/10 pb-2">
-                <span className="text-secondary-300">Margen Comercial ({budget?.marginPercentage}%)</span>
-                <span>{symbol} {Number(budget?.marginAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/10 pb-2">
-                <span className="text-secondary-300">IGV / Impuesto ({budget?.taxPercentage}%)</span>
-                <span>{symbol} {Number(budget?.taxAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/10 pb-2">
-                <span className="text-secondary-300">Descuento ({budget?.discountPercentage}%)</span>
-                <span className="text-red-300">-{symbol} {Number(budget?.discountAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex justify-between pt-2">
-                <span className="font-black text-base text-white">TOTAL FINAL</span>
-                <span className="font-black text-2xl text-white">
-                  {symbol} {Number(budget?.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Financial Sliders */}
-          <div className="card p-6 space-y-5">
-            <h3 className="font-bold text-sm text-secondary-900 border-b border-secondary-100 pb-2.5 flex items-center gap-1.5">
-              <Icon icon="mdi:tune-vertical" className="text-secondary-500" /> Ajustes Financieros
-            </h3>
-
-            {/* Currency Selector */}
-            <div>
-              <label className="block text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1.5">Moneda Base</label>
-              <select
-                value={budget?.currency}
-                disabled={isLocked}
-                onChange={async (e) => {
-                  try {
-                    await budgetsService.update(id, { currency: e.target.value });
-                    await fetchBudget();
-                  } catch (err) {
-                    alert(err.response?.data?.message || 'Error al cambiar moneda');
-                  }
-                }}
-                className="input-base"
-              >
-                <option value="PEN">Soles (PEN)</option>
-                <option value="USD">Dólares (USD)</option>
-                <option value="EUR">Euros (EUR)</option>
-              </select>
-            </div>
-
-            {renderSlider('Contingencia', 'contingencyPercentage', 0, 30)}
-            {renderSlider('Margen Comercial', 'marginPercentage', 0, 80)}
-            {renderSlider('Impuestos (IGV)', 'taxPercentage', 0, 30)}
-            {renderSlider('Descuento', 'discountPercentage', 0, 40)}
-          </div>
-
-          {/* Snapshot Versions */}
-          <div className="card p-6 space-y-4">
-            <div className="flex justify-between items-center border-b border-secondary-100 pb-2.5">
-              <h3 className="font-bold text-sm text-secondary-900 flex items-center gap-1.5">
-                <Icon icon="mdi:history" className="text-secondary-500" /> Historial de Snapshots
-              </h3>
-              {!isLocked && (
-                <button onClick={handleCreateSnapshot} disabled={saving} className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-0.5">
-                  <Icon icon="mdi:plus-circle" /> Guardar
+          {/* Left: Modules, Tasks, Dependencies */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold text-secondary-900">Módulos del Proyecto</h2>
+              <div className="flex gap-2 flex-wrap">
+                {/* Botón IA - siempre visible */}
+                <button
+                  onClick={() => {
+                    setAiModal(true); setAiPrompt(''); setAiResult(null);
+                    setAiMarket('peru'); setAiScope('full');
+                    setAiSenUI('mid'); setAiSenFront('mid'); setAiSenBack('mid'); setAiSenDB('mid'); setAiSenInfra('mid');
+                  }}
+                  style={{ background: '#4f46e5', color: 'white', border: 'none' }}
+                  className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-semibold cursor-pointer hover:opacity-90 transition-opacity"
+                >
+                  <Icon icon="mdi:brain" /> Generar con Modelo
                 </button>
-              )}
+
+                {!isLocked && (
+                  <>
+                    {modules.length === 0 && budget?.status === 'draft' && (
+                      <button onClick={() => setApplyModal(true)} className="btn-secondary text-secondary-600 flex items-center gap-1.5 text-sm">
+                        <Icon icon="mdi:text-box-multiple-outline" /> Aplicar Plantilla
+                      </button>
+                    )}
+                    <button onClick={openAddModule} className="btn-primary flex items-center gap-1.5 text-sm">
+                      <Icon icon="mdi:plus" /> Añadir Módulo
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
-            {versions.length === 0 ? (
-              <p className="text-xs text-secondary-400 italic text-center py-4">No hay snapshots creados.</p>
-            ) : (
-              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                {versions.map((ver) => (
-                  <div key={ver.id} className="p-3 bg-secondary-50 rounded-lg border border-secondary-100 flex items-center justify-between text-xs">
-                    <div>
-                      <p className="font-bold text-secondary-800">Versión v{ver.versionNumber}</p>
-                      <p className="text-[10px] text-secondary-400 mt-0.5">{new Date(ver.createdAt).toLocaleString()}</p>
-                      <p className="text-[9px] text-secondary-500 mt-0.5">Por: {ver.createdBy?.name || 'Sistema'}</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => setCompareModal(ver)} className="px-2 py-1 bg-white text-secondary-700 border border-secondary-200 rounded font-semibold hover:bg-secondary-100" title="Comparar con actual">
-                        Comparar
+            {modules.length === 0 ? (
+              <div className="card p-12 text-center border-dashed border-2 border-secondary-300">
+                <Icon icon="mdi:view-grid-plus-outline" className="text-5xl text-secondary-300 mx-auto mb-3" />
+                <p className="text-secondary-500 font-semibold">Este presupuesto no tiene módulos.</p>
+                <p className="text-xs text-secondary-400 mt-1 mb-6">Añade un módulo personalizado o aplica una plantilla base.</p>
+                {!isLocked && (
+                  <div className="flex justify-center gap-3">
+                    {budget?.status === 'draft' && (
+                      <button onClick={() => setApplyModal(true)} className="btn-secondary flex items-center gap-1.5 text-sm">
+                        <Icon icon="mdi:text-box-multiple-outline" /> Cargar Plantilla
                       </button>
+                    )}
+                    <button onClick={openAddModule} className="btn-primary flex items-center gap-1.5 text-sm">
+                      <Icon icon="mdi:plus" /> Crear Módulo
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {modules.map((mod) => (
+                  <motion.div key={mod.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card overflow-hidden">
+                    {/* Module Header */}
+                    <div className="flex items-center justify-between px-6 py-3.5 bg-secondary-50/50 border-b border-secondary-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-secondary-200 flex items-center justify-center">
+                          <Icon icon="mdi:folder-outline" className="text-secondary-700 text-lg" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-secondary-900">{mod.name}</span>
+                          <p className="text-[10px] text-secondary-400 font-medium tracking-wider uppercase mt-0.5">Subtotal: {symbol} {Number(mod.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                        </div>
+                      </div>
                       {!isLocked && (
-                        <button onClick={() => handleRestoreVersion(ver.id)} className="px-2 py-1 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700" title="Restaurar este estado">
-                          Restaurar
-                        </button>
+                        <div className="flex gap-0.5">
+                          <button onClick={() => openAddTask(mod.id)} className="p-1.5 text-secondary-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors" title="Añadir tarea">
+                            <Icon icon="mdi:plus" className="text-lg" />
+                          </button>
+                          <button onClick={() => openAddDependency(mod.id)} className="p-1.5 text-secondary-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Añadir dependencia SaaS">
+                            <Icon icon="mdi:api" className="text-lg" />
+                          </button>
+                          <button onClick={() => openEditModule(mod)} className="p-1.5 text-secondary-400 hover:text-secondary-700 rounded-lg hover:bg-secondary-100 transition-colors">
+                            <Icon icon="mdi:pencil-outline" className="text-base" />
+                          </button>
+                          <button onClick={() => deleteModule(mod.id)} className="p-1.5 text-secondary-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors">
+                            <Icon icon="mdi:trash-can-outline" className="text-base" />
+                          </button>
+                        </div>
                       )}
                     </div>
-                  </div>
+
+                    {/* Tasks Sub-list */}
+                    <div className="p-4 border-b border-secondary-50">
+                      <div className="flex items-center gap-1.5 mb-2 px-2 text-xs font-bold text-secondary-400 tracking-wide uppercase">
+                        <Icon icon="mdi:clipboard-text-play-outline" /> Tareas Estimadas
+                      </div>
+                      {(!mod.tasks || mod.tasks.length === 0) ? (
+                        <p className="px-6 py-3 text-xs text-secondary-400 italic">Sin tareas estimadas en este módulo.</p>
+                      ) : (
+                        <div className="divide-y divide-secondary-100 border border-secondary-100 rounded-lg overflow-hidden bg-white">
+                          {mod.tasks.map(task => {
+                            const meta = parseMetadata(task.description);
+                            return (
+                              <div key={task.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-secondary-50/20 transition-colors">
+                                <div className="flex-1 pr-4">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <p className="text-sm font-semibold text-secondary-800">{task.name}</p>
+                                    {meta.priority && meta.priority !== 'Media' && (
+                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${meta.priority === 'Alta' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                        {meta.priority}
+                                      </span>
+                                    )}
+                                    {meta.role && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 uppercase">
+                                        {meta.role}
+                                      </span>
+                                    )}
+                                    {meta.dependsOn && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 flex items-center gap-0.5" title={`Depende de tarea ID: ${meta.dependsOn}`}>
+                                        <Icon icon="mdi:link-variant" /> Dependencia
+                                      </span>
+                                    )}
+                                  </div>
+                                  {meta.cleanDesc && <p className="text-xs text-secondary-400 line-clamp-1 mt-0.5">{meta.cleanDesc}</p>}
+                                  <p className="text-[10px] text-secondary-500 font-mono mt-1">
+                                    {task.hours ? `${task.hours}h × ${symbol}${task.hourlyRate}/h` : `Cant: ${task.quantity} × ${symbol}${task.unitPrice}`}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                  <span className="font-bold text-secondary-900 text-sm">
+                                    {symbol} {Number(task.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                  </span>
+                                  {!isLocked && (
+                                    <div className="flex gap-0.5">
+                                      <button onClick={() => openEditTask(task, mod.id)} className="p-1 text-secondary-400 hover:text-blue-600 rounded transition-colors">
+                                        <Icon icon="mdi:pencil-outline" className="text-sm" />
+                                      </button>
+                                      <button onClick={() => deleteTask(task.id)} className="p-1 text-secondary-400 hover:text-red-600 rounded transition-colors">
+                                        <Icon icon="mdi:trash-can-outline" className="text-sm" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Dependencies (SaaS) Sub-list */}
+                    <div className="p-4 bg-secondary-50/20">
+                      <div className="flex items-center gap-1.5 mb-2 px-2 text-xs font-bold text-secondary-400 tracking-wide uppercase">
+                        <Icon icon="mdi:cloud-outline" /> Dependencias Externas (SaaS / APIs)
+                      </div>
+                      {(!mod.dependencies || mod.dependencies.length === 0) ? (
+                        <p className="px-6 py-3 text-xs text-secondary-400 italic">Sin dependencias externas registradas.</p>
+                      ) : (
+                        <div className="divide-y divide-secondary-100 border border-secondary-100 rounded-lg overflow-hidden bg-white">
+                          {mod.dependencies.map(dep => (
+                            <div key={dep.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-secondary-50/20 transition-colors">
+                              <div className="flex-1 pr-4">
+                                <p className="text-sm font-semibold text-secondary-800">{dep.provider?.name || 'SaaS'}</p>
+                                <p className="text-xs text-secondary-500 mt-0.5">
+                                  Plan: <span className="font-medium text-secondary-700">{dep.plan?.name || 'Personalizado'}</span> · Recursos: {dep.quantity} · Billed: {dep.plan?.billingCycle === 'annual' ? 'Anual' : 'Mensual'}
+                                </p>
+                                {dep.plan?.description && <p className="text-[10px] text-secondary-400 mt-0.5">{dep.plan.description}</p>}
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <span className="font-bold text-secondary-900 text-sm">
+                                  {symbol} {Number(dep.cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                </span>
+                                {!isLocked && (
+                                  <div className="flex gap-0.5">
+                                    <button onClick={() => openEditDependency(dep, mod.id)} className="p-1 text-secondary-400 hover:text-blue-600 rounded transition-colors">
+                                      <Icon icon="mdi:pencil-outline" className="text-sm" />
+                                    </button>
+                                    <button onClick={() => handleDeleteDependency(dep.id)} className="p-1 text-secondary-400 hover:text-red-600 rounded transition-colors">
+                                      <Icon icon="mdi:trash-can-outline" className="text-sm" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Export Options */}
-          <div className="card p-6 space-y-3">
-            <h3 className="font-bold text-sm text-secondary-900 border-b border-secondary-100 pb-2.5 flex items-center gap-1.5">
-              <Icon icon="mdi:file-export-outline" className="text-secondary-500" /> Exportar Documentos
-            </h3>
+          {/* Right: Summary, Settings, Versions, Exports */}
+          <div className="space-y-6">
+            {/* Totals Summary */}
+            <div className="card p-6 bg-secondary-900 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
+                <Icon icon="mdi:calculator" className="text-9xl" />
+              </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: 'PDF', format: 'pdf', icon: 'mdi:file-pdf-box', cls: 'hover:bg-red-50 text-red-600 border-red-200' },
-                { label: 'Word', format: 'word', icon: 'mdi:file-word-box', cls: 'hover:bg-blue-50 text-blue-600 border-blue-200' },
-                { label: 'Excel', format: 'excel', icon: 'mdi:file-excel-box', cls: 'hover:bg-green-50 text-green-600 border-green-200' },
-              ].map(opt => (
-                <button
-                  key={opt.format}
-                  disabled={exportingFormat !== null}
-                  onClick={() => handleExport(opt.format)}
-                  className={`flex flex-col items-center justify-center p-3 border rounded-lg transition-colors text-xs font-bold gap-1 bg-white disabled:opacity-40 cursor-pointer ${opt.cls}`}
+              <h3 className="font-bold text-xs uppercase tracking-widest text-secondary-400 mb-4">Resumen de Totales</h3>
+              <div className="space-y-3 font-medium text-sm">
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                  <span className="text-secondary-300">Subtotal Módulos</span>
+                  <span>{symbol} {Number(budget?.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                  <span className="text-secondary-300">Contingencia ({budget?.contingencyPercentage}%)</span>
+                  <span>{symbol} {Number(budget?.contingencyAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                  <span className="text-secondary-300">Margen Comercial ({budget?.marginPercentage}%)</span>
+                  <span>{symbol} {Number(budget?.marginAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                  <span className="text-secondary-300">IGV / Impuesto ({budget?.taxPercentage}%)</span>
+                  <span>{symbol} {Number(budget?.taxAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                  <span className="text-secondary-300">Descuento ({budget?.discountPercentage}%)</span>
+                  <span className="text-red-300">-{symbol} {Number(budget?.discountAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between pt-2">
+                  <span className="font-black text-base text-white">TOTAL FINAL</span>
+                  <span className="font-black text-2xl text-white">
+                    {symbol} {Number(budget?.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Sliders */}
+            <div className="card p-6 space-y-5">
+              <h3 className="font-bold text-sm text-secondary-900 border-b border-secondary-100 pb-2.5 flex items-center gap-1.5">
+                <Icon icon="mdi:tune-vertical" className="text-secondary-500" /> Ajustes Financieros
+              </h3>
+
+              {/* Currency Selector */}
+              <div>
+                <label className="block text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1.5">Moneda Base</label>
+                <select
+                  value={budget?.currency}
+                  disabled={isLocked}
+                  onChange={async (e) => {
+                    try {
+                      await budgetsService.update(id, { currency: e.target.value });
+                      await fetchBudget();
+                    } catch (err) {
+                      alert(err.response?.data?.message || 'Error al cambiar moneda');
+                    }
+                  }}
+                  className="input-base"
                 >
-                  {exportingFormat === opt.format ? (
-                    <Icon icon="mdi:loading" className="text-xl animate-spin" />
-                  ) : (
-                    <Icon icon={opt.icon} className="text-2xl" />
-                  )}
-                  {opt.label}
-                </button>
-              ))}
+                  <option value="PEN">Soles (PEN)</option>
+                  <option value="USD">Dólares (USD)</option>
+                  <option value="EUR">Euros (EUR)</option>
+                </select>
+              </div>
+
+              {renderSlider('Contingencia', 'contingencyPercentage', 0, 30)}
+              {renderSlider('Margen Comercial', 'marginPercentage', 0, 80)}
+              {renderSlider('Impuestos (IGV)', 'taxPercentage', 0, 30)}
+              {renderSlider('Descuento', 'discountPercentage', 0, 40)}
+            </div>
+
+            {/* Snapshot Versions */}
+            <div className="card p-6 space-y-4">
+              <div className="flex justify-between items-center border-b border-secondary-100 pb-2.5">
+                <h3 className="font-bold text-sm text-secondary-900 flex items-center gap-1.5">
+                  <Icon icon="mdi:history" className="text-secondary-500" /> Historial de Snapshots
+                </h3>
+                {!isLocked && (
+                  <button onClick={handleCreateSnapshot} disabled={saving} className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-0.5">
+                    <Icon icon="mdi:plus-circle" /> Guardar
+                  </button>
+                )}
+              </div>
+
+              {versions.length === 0 ? (
+                <p className="text-xs text-secondary-400 italic text-center py-4">No hay snapshots creados.</p>
+              ) : (
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                  {versions.map((ver) => (
+                    <div key={ver.id} className="p-3 bg-secondary-50 rounded-lg border border-secondary-100 flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-bold text-secondary-800">Versión v{ver.versionNumber}</p>
+                        <p className="text-[10px] text-secondary-400 mt-0.5">{new Date(ver.createdAt).toLocaleString()}</p>
+                        <p className="text-[9px] text-secondary-500 mt-0.5">Por: {ver.createdBy?.name || 'Sistema'}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => setCompareModal(ver)} className="px-2 py-1 bg-white text-secondary-700 border border-secondary-200 rounded font-semibold hover:bg-secondary-100" title="Comparar con actual">
+                          Comparar
+                        </button>
+                        {!isLocked && (
+                          <button onClick={() => handleRestoreVersion(ver.id)} className="px-2 py-1 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700" title="Restaurar este estado">
+                            Restaurar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Export Options */}
+            <div className="card p-6 space-y-3">
+              <h3 className="font-bold text-sm text-secondary-900 border-b border-secondary-100 pb-2.5 flex items-center gap-1.5">
+                <Icon icon="mdi:file-export-outline" className="text-secondary-500" /> Exportar Documentos
+              </h3>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'PDF', format: 'pdf', icon: 'mdi:file-pdf-box', cls: 'hover:bg-red-50 text-red-600 border-red-200' },
+                  { label: 'Word', format: 'word', icon: 'mdi:file-word-box', cls: 'hover:bg-blue-50 text-blue-600 border-blue-200' },
+                  { label: 'Excel', format: 'excel', icon: 'mdi:file-excel-box', cls: 'hover:bg-green-50 text-green-600 border-green-200' },
+                ].map(opt => (
+                  <button
+                    key={opt.format}
+                    disabled={exportingFormat !== null}
+                    onClick={() => handleExport(opt.format)}
+                    className={`flex flex-col items-center justify-center p-3 border rounded-lg transition-colors text-xs font-bold gap-1 bg-white disabled:opacity-40 cursor-pointer ${opt.cls}`}
+                  >
+                    {exportingFormat === opt.format ? (
+                      <Icon icon="mdi:loading" className="text-xl animate-spin" />
+                    ) : (
+                      <Icon icon={opt.icon} className="text-2xl" />
+                    )}
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
       ) : (
         /* Vista Previa: Render A4 paper sheet container */
         <div className="a4-container">
@@ -940,15 +942,23 @@ export default function BudgetEditor() {
             <div className="flex justify-between items-start border-b-2 border-secondary-900 pb-6">
               <div className="text-left">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-10 h-10 bg-secondary-900 text-white rounded-lg flex items-center justify-center font-black text-xl">
-                    P
+                  <div className="w-10 h-10 bg-secondary-900 text-white rounded-lg flex items-center justify-center font-black text-xl uppercase">
+                    {company?.name ? company.name.charAt(0) : 'P'}
                   </div>
-                  <span className="text-xl font-bold tracking-tight text-secondary-900">PresuSoft Co.</span>
+                  <span className="text-xl font-bold tracking-tight text-secondary-900">
+                    {company?.name || 'Nombre de mi Empresa'}
+                  </span>
                 </div>
-                <p className="text-xs text-secondary-500 font-medium">PresuSoft Soluciones Tecnológicas S.A.C.</p>
-                <p className="text-xs text-secondary-500">RUC: 20123456789</p>
-                <p className="text-xs text-secondary-500">Av. Javier Prado Este 1234, San Isidro, Lima</p>
-                <p className="text-xs text-secondary-500">contacto@presusoft.com | www.presusoft.com</p>
+                {company?.ruc && <p className="text-xs text-secondary-500 font-medium">RUC / NIT: {company.ruc}</p>}
+                {company?.address && <p className="text-xs text-secondary-500">{company.address}</p>}
+                {company?.phone && <p className="text-xs text-secondary-500">Telf: {company.phone}</p>}
+                {company?.email && <p className="text-xs text-secondary-500">Email: {company.email}</p>}
+                {company?.website && <p className="text-xs text-secondary-500">Web: {company.website}</p>}
+                {!company && (
+                  <>
+                    <p className="text-xs text-secondary-500 font-medium">Ve a Configuración para actualizar los datos de tu empresa</p>
+                  </>
+                )}
               </div>
               <div className="text-right">
                 <h2 className="text-2xl font-black text-secondary-900 tracking-wide uppercase">PRESUPUESTO</h2>
@@ -1157,7 +1167,7 @@ export default function BudgetEditor() {
                     <span className="text-secondary-500">Subtotal Módulos</span>
                     <span className="font-mono text-secondary-900">{symbol} {Number(budget?.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                   </div>
-                  
+
                   {Number(budget?.contingencyAmount || 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-secondary-500">Contingencia ({budget?.contingencyPercentage}%)</span>
@@ -1237,7 +1247,7 @@ export default function BudgetEditor() {
             </div>
           </div>
         </div>
-        )}
+      )}
 
       {/* === MODALS === */}
       <AnimatePresence>
@@ -1429,7 +1439,7 @@ export default function BudgetEditor() {
                       </p>
                     </div>
                   </div>
-                  
+
                   {/* Tooltip / Details card for Plan */}
                   <div className="bg-white p-2.5 rounded border border-blue-100 mt-2">
                     <p className="text-[11px] font-bold text-secondary-800 mb-1 flex items-center gap-1">
@@ -1439,7 +1449,7 @@ export default function BudgetEditor() {
                       {selectedPlan.description || 'Este plan incluye funcionalidades estándar de la plataforma. Verifica los límites en la documentación del proveedor.'}
                     </p>
                   </div>
-                  
+
                   <p className="text-[9px] text-blue-600 mt-1 italic text-center">
                     * El backend convertirá automáticamente los costos en USD a {budget?.currency} en base a la tasa actual.
                   </p>
@@ -1726,22 +1736,8 @@ export default function BudgetEditor() {
 
               {/* Body */}
               <div className="p-6 space-y-4">
-                {/* Selectors: Alcance y Mercado */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-violet-50/50 p-4 rounded-t-xl border border-violet-100 border-b-0">
-                  <div>
-                    <label className="block text-[11px] font-bold text-violet-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                      <Icon icon="mdi:target" className="text-sm" /> Alcance
-                    </label>
-                    <select
-                      value={aiScope}
-                      onChange={e => setAiScope(e.target.value)}
-                      className="w-full bg-white border border-violet-200 text-secondary-800 text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 p-2 shadow-sm"
-                    >
-                      <option value="full">Fullstack (Todo)</option>
-                      <option value="frontend">Solo Frontend/UI</option>
-                      <option value="backend">Solo Backend/Infra/BD</option>
-                    </select>
-                  </div>
+                {/* Selectors: Mercado */}
+                <div className="grid grid-cols-1 gap-3 bg-violet-50/50 p-4 rounded-t-xl border border-violet-100 border-b-0">
                   <div>
                     <label className="block text-[11px] font-bold text-violet-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                       <Icon icon="mdi:earth" className="text-sm" /> Mercado
@@ -1759,48 +1755,37 @@ export default function BudgetEditor() {
                   </div>
                 </div>
 
-                {/* Team Seniorities */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-violet-50/30 p-4 rounded-b-xl border border-violet-100">
-                  <div className={aiScope === 'backend' ? 'opacity-40 pointer-events-none' : ''}>
-                    <label className="block text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1 flex items-center gap-1">
-                      <Icon icon="mdi:palette" /> UI/UX
-                    </label>
-                    <select disabled={aiScope === 'backend'} value={aiSenUI} onChange={e => setAiSenUI(e.target.value)} className="w-full bg-white border border-violet-200 text-[13px] rounded-lg p-1.5">
-                      <option value="junior">Junior</option><option value="mid">Mid</option><option value="senior">Senior</option>
-                    </select>
+                {/* Team Members */}
+                <div className="bg-violet-50/30 p-4 rounded-b-xl border border-violet-100">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-violet-200 flex items-center justify-center text-violet-700">
+                      <Icon icon="mdi:account-group" className="text-lg" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-violet-900">Equipo Asignado al Proyecto</p>
+                      <p className="text-xs text-violet-700">El modelo usará los roles de este equipo para generar los módulos.</p>
+                    </div>
                   </div>
-                  <div className={aiScope === 'backend' ? 'opacity-40 pointer-events-none' : ''}>
-                    <label className="block text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1 flex items-center gap-1">
-                      <Icon icon="mdi:monitor-dashboard" /> Frontend
-                    </label>
-                    <select disabled={aiScope === 'backend'} value={aiSenFront} onChange={e => setAiSenFront(e.target.value)} className="w-full bg-white border border-violet-200 text-[13px] rounded-lg p-1.5">
-                      <option value="junior">Junior</option><option value="mid">Mid</option><option value="senior">Senior</option>
-                    </select>
-                  </div>
-                  <div className={aiScope === 'frontend' ? 'opacity-40 pointer-events-none' : ''}>
-                    <label className="block text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1 flex items-center gap-1">
-                      <Icon icon="mdi:server" /> Backend
-                    </label>
-                    <select disabled={aiScope === 'frontend'} value={aiSenBack} onChange={e => setAiSenBack(e.target.value)} className="w-full bg-white border border-violet-200 text-[13px] rounded-lg p-1.5">
-                      <option value="junior">Junior</option><option value="mid">Mid</option><option value="senior">Senior</option>
-                    </select>
-                  </div>
-                  <div className={aiScope === 'frontend' ? 'opacity-40 pointer-events-none' : ''}>
-                    <label className="block text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1 flex items-center gap-1">
-                      <Icon icon="mdi:database" /> Base Datos
-                    </label>
-                    <select disabled={aiScope === 'frontend'} value={aiSenDB} onChange={e => setAiSenDB(e.target.value)} className="w-full bg-white border border-violet-200 text-[13px] rounded-lg p-1.5">
-                      <option value="junior">Junior</option><option value="mid">Mid</option><option value="senior">Senior</option>
-                    </select>
-                  </div>
-                  <div className={aiScope === 'frontend' ? 'opacity-40 pointer-events-none' : ''}>
-                    <label className="block text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1 flex items-center gap-1">
-                      <Icon icon="mdi:cloud" /> Infra
-                    </label>
-                    <select disabled={aiScope === 'frontend'} value={aiSenInfra} onChange={e => setAiSenInfra(e.target.value)} className="w-full bg-white border border-violet-200 text-[13px] rounded-lg p-1.5">
-                      <option value="junior">Junior</option><option value="mid">Mid</option><option value="senior">Senior</option>
-                    </select>
-                  </div>
+
+                  {budget?.teamMembers?.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {budget.teamMembers.map(member => (
+                        <div key={member.id} className="bg-white border border-violet-200 rounded-lg px-3 py-1.5 flex items-center gap-2 shadow-sm">
+                          <div className="w-5 h-5 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-[10px] font-bold">
+                            {member.collaborator?.name?.charAt(0) || 'U'}
+                          </div>
+                          <span className="text-xs font-bold text-secondary-800">{member.collaborator?.name}</span>
+                          <span className="text-[10px] font-semibold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">
+                            {member.projectRole || 'Sin Rol'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-secondary-500 italic p-2 bg-white/50 rounded-lg border border-dashed border-violet-200">
+                      No se han asignado miembros a este proyecto.
+                    </div>
+                  )}
                 </div>
 
 
@@ -1855,7 +1840,7 @@ export default function BudgetEditor() {
                         <p className="font-bold text-blue-800 text-xs">{aiResult.marketLabel}</p>
                       </div>
                     </div>
-                    
+
                     {/* Row 3: Team Breakdown */}
                     <div className="grid grid-cols-5 gap-2 mt-2">
                       <div className="bg-amber-50 rounded p-1.5 border border-amber-100 text-center">
@@ -1909,7 +1894,7 @@ export default function BudgetEditor() {
                     <button
                       onClick={handleAIGenerate}
                       disabled={aiLoading || !aiPrompt.trim()}
-                      className="btn-primary flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-none flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       {aiLoading ? (
                         <><Icon icon="mdi:loading" className="animate-spin text-lg" /> Procesando...</>
@@ -1932,11 +1917,10 @@ export default function BudgetEditor() {
             initial={{ opacity: 0, y: 60, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 60, scale: 0.95 }}
-            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-sm font-semibold ${
-              toast.type === 'error'
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-sm font-semibold ${toast.type === 'error'
                 ? 'bg-red-600 text-white'
                 : 'bg-gray-900 text-white'
-            }`}
+              }`}
           >
             <Icon icon={toast.type === 'error' ? 'mdi:alert-circle' : 'mdi:check-circle'} className="text-xl flex-shrink-0" />
             <span>{toast.msg}</span>

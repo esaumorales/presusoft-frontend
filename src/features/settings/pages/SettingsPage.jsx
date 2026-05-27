@@ -14,7 +14,7 @@ export default function SettingsPage() {
   const { user, setUser } = useAuthStore();
   const [company, setCompany] = useState(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
-  const [companyForm, setCompanyForm] = useState({ name: '', ruc: '', address: '', phone: '', email: '', currency: 'USD', taxPercentage: 18 });
+  const [companyForm, setCompanyForm] = useState({ name: '', ruc: '', address: '', phone: '', email: '', website: '', currency: 'USD', taxPercentage: 18 });
   const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
   const [savingC, setSavingC] = useState(false);
   const [savingP, setSavingP] = useState(false);
@@ -30,7 +30,7 @@ export default function SettingsPage() {
         if (cs.length > 0) {
           const c = cs[0];
           setCompany(c);
-          setCompanyForm({ name: c.name || '', ruc: c.ruc || '', address: c.address || '', phone: c.phone || '', email: c.email || '', currency: c.currency || 'USD', taxPercentage: Number(c.taxPercentage) || 18 });
+          setCompanyForm({ name: c.name || '', ruc: c.ruc || '', address: c.address || '', phone: c.phone || '', email: c.email || '', website: c.website || '', currency: c.currency || 'USD', taxPercentage: Number(c.taxPercentage) || 18 });
         }
       }
       if (pR.status === 'fulfilled') {
@@ -122,6 +122,7 @@ export default function SettingsPage() {
               <div><label style={labelStyle}>RUC / NIT</label><input name="ruc" value={companyForm.ruc} onChange={setC} placeholder="20600000001" style={inputStyle} /></div>
               <div><label style={labelStyle}>Teléfono</label><input name="phone" value={companyForm.phone} onChange={setC} placeholder="01 234 5678" style={inputStyle} /></div>
               <div><label style={labelStyle}>Correo</label><input type="email" name="email" value={companyForm.email} onChange={setC} placeholder="empresa@email.com" style={inputStyle} /></div>
+              <div><label style={labelStyle}>Sitio Web</label><input type="text" name="website" value={companyForm.website} onChange={setC} placeholder="www.miempresa.com" style={inputStyle} /></div>
               <div>
                 <label style={labelStyle}>Moneda</label>
                 <select name="currency" value={companyForm.currency} onChange={setC} style={{ ...inputStyle }}>

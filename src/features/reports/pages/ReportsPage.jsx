@@ -106,7 +106,7 @@ export default function ReportsPage() {
             {/* Mock bars */}
             {[40, 65, 45, 80, 55, 90, 75].map((h, i) => (
               <div key={i} className="group relative" style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end' }}>
-                <div style={{ width: '100%', height: `${h}%`, background: 'linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)', borderRadius: '4px 4px 0 0', opacity: 0.8, transition: 'all 0.3s' }} className="group-hover:opacity-100 group-hover:scale-y-[1.02] origin-bottom cursor-pointer" />
+                <div style={{ width: '100%', height: `${h}%`, background: '#3b82f6', borderRadius: '4px 4px 0 0', opacity: 0.8, transition: 'all 0.3s' }} className="group-hover:opacity-100 group-hover:scale-y-[1.02] origin-bottom cursor-pointer" />
               </div>
             ))}
           </div>

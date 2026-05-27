@@ -19,6 +19,7 @@ import TemplateEditor from '../../features/templates/pages/TemplateEditor';
 import SettingsPage from '../../features/settings/pages/SettingsPage';
 import IntegrationsList from '../../features/integrations/pages/IntegrationsList';
 import ReportsPage from '../../features/reports/pages/ReportsPage';
+import TeamList from '../../features/team/pages/TeamList';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, token } = useAuthStore();
@@ -50,6 +51,7 @@ export default function AppRouter() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="integrations" element={<IntegrationsList />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="team" element={<TeamList />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

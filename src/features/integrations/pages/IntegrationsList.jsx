@@ -116,7 +116,7 @@ export default function IntegrationsList() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                <div style={{ width: 52, height: 52, borderRadius: 12, background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${C.border}`, color: C.s800, fontSize: 24 }}>
+                <div style={{ width: 52, height: 52, borderRadius: 12, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${C.border}`, color: C.s800, fontSize: 24 }}>
                   {prov.name.toLowerCase().includes('mail') || prov.name.toLowerCase().includes('send') ? <Icon icon="mdi:email-fast-outline" /> : <Icon icon="mdi:cloud-outline" />}
                 </div>
                 <div>

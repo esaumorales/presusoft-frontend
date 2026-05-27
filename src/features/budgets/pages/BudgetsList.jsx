@@ -5,9 +5,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { budgetsService } from '../api/budgets.service';
 import { clientsService } from '../../clients/api/clients.service';
 import { templatesService } from '../../templates/api/templates.service';
+import BudgetCreateWizard from '../components/BudgetCreateWizard';
 import { C, card, STATUS_CFG } from '../../../core/styles/palette';
-
-const EMPTY = { title: '', description: '', clientId: '', templateId: '', currency: 'PEN', taxPercentage: 18, validityDays: 15 };
 
 const th = { padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em', background: C.bg, borderBottom: `1px solid ${C.border}` };
 const td = (extra = {}) => ({ padding: '13px 20px', borderBottom: `1px solid ${C.border2}`, fontSize: 13, color: C.text, ...extra });
@@ -29,9 +28,6 @@ export default function BudgetsList() {
   const [filterCurrency, setFilterCurrency] = useState('all');
   const [filterDate, setFilterDate] = useState('all');
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState(EMPTY);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
 
   const fetch = async () => {
     setLoading(true);
@@ -48,23 +44,6 @@ export default function BudgetsList() {
   };
 
   useEffect(() => { fetch(); }, []);
-
-  const close = () => { setShowModal(false); setForm(EMPTY); setError(''); };
-  const set   = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-
-  const handleSubmit = async e => {
-    e.preventDefault(); setSaving(true); setError('');
-    try {
-      const payload = { ...form };
-      if (payload.clientId === '') delete payload.clientId;
-      if (payload.templateId === '') delete payload.templateId;
-      payload.taxPercentage = Number(payload.taxPercentage);
-      payload.validityDays  = Number(payload.validityDays);
-      await budgetsService.create(payload);
-      await fetch(); close();
-    } catch (err) { setError(err.response?.data?.message || 'Error al crear.'); }
-    finally { setSaving(false); }
-  };
 
   const handleDelete = async id => {
     if (!window.confirm('¿Eliminar este presupuesto?')) return;
@@ -87,7 +66,10 @@ export default function BudgetsList() {
       if (filterDate === 'year') return date.getFullYear() === now.getFullYear();
       return true;
     })
-    .filter(b => b.title?.toLowerCase().includes(search.toLowerCase()) || b.client?.name?.toLowerCase().includes(search.toLowerCase()));
+    .filter(b => {
+      const clientName = b.project?.client?.name || '';
+      return b.title?.toLowerCase().includes(search.toLowerCase()) || clientName.toLowerCase().includes(search.toLowerCase());
+    });
 
   // Summary Metrics
   const activeCount = budgets.filter(b => ['accepted', 'sent'].includes(b.status)).length;
@@ -210,7 +192,7 @@ export default function BudgetsList() {
                   <td style={{ ...td(), fontWeight: 600, maxWidth: 220 }}>
                     <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
                   </td>
-                  <td style={td({ color: C.s500 })}>{b.client?.name || '—'}</td>
+                  <td style={td({ color: C.s500 })}>{b.project?.client?.name || '—'}</td>
                   <td style={{ ...td(), fontWeight: 700 }}>
                     {b.currency === 'PEN' ? 'S/. ' : b.currency === 'EUR' ? '€ ' : '$ '}
                     {Number(b.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -232,77 +214,12 @@ export default function BudgetsList() {
         </table>
       </div>
 
-      {/* Create Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(30,43,57,0.45)' }}
-            onClick={e => e.target === e.currentTarget && close()}>
-            <motion.div initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 16 }}
-              style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, width: '100%', maxWidth: 480, boxShadow: '0 20px 40px rgba(30,43,57,0.18)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 22px', borderBottom: `1px solid ${C.border}` }}>
-                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>Nuevo Presupuesto</h2>
-                <button onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><Icon icon="mdi:close" style={{ fontSize: 20 }} /></button>
-              </div>
-              <form onSubmit={handleSubmit} style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {error && <div style={{ padding: '10px 14px', borderRadius: 7, background: '#fee2e2', color: '#b91c1c', fontSize: 13 }}>{error}</div>}
-                {[
-                  { label: 'Título *', name: 'title', placeholder: 'Ej. Sistema web para Acme Corp', required: true },
-                  { label: 'Descripción', name: 'description', placeholder: 'Descripción breve...' },
-                ].map(f => (
-                  <div key={f.name}>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>{f.label}</label>
-                    <input name={f.name} value={form[f.name]} onChange={set} placeholder={f.placeholder} required={f.required}
-                      style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 7, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' }} />
-                  </div>
-                ))}
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Cliente</label>
-                  <select name="clientId" value={form.clientId} onChange={set} style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 7, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', background: C.white }}>
-                    <option value="">Sin cliente asignado</option>
-                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Moneda</label>
-                    <select name="currency" value={form.currency} onChange={set} style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 7, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', background: C.white }}>
-                      <option value="PEN">Soles (PEN)</option>
-                      <option value="USD">Dólares (USD)</option>
-                      <option value="EUR">Euros (EUR)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Plantilla Base</label>
-                    <select name="templateId" value={form.templateId} onChange={set} style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 7, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', background: C.white }}>
-                      <option value="">Sin plantilla (Vacío)</option>
-                      {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>IGV (%)</label>
-                    <input name="taxPercentage" type="number" value={form.taxPercentage} onChange={set}
-                      style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 7, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' }} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Validez (días)</label>
-                    <input name="validityDays" type="number" value={form.validityDays} onChange={set}
-                      style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 7, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' }} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
-                  <button type="button" onClick={close} style={{ ...btnSecondary, flex: 1 }}>Cancelar</button>
-                  <button type="submit" style={{ ...btnPrimary, flex: 1, justifyContent: 'center' }} disabled={saving}>
-                    {saving ? <Icon icon="mdi:loading" className="animate-spin" /> : 'Crear Presupuesto'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Create Modal Wizard */}
+      <BudgetCreateWizard 
+        isOpen={showModal} 
+        onClose={() => setShowModal(false)} 
+        onCreated={fetch} 
+      />
     </div>
   );
 }

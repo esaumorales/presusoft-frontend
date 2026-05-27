@@ -135,7 +135,7 @@ export default function Register() {
               </div>
             </div>
             <div className="pt-4">
-              <button type="submit" className="btn-primary w-full shadow-purple-500/25 py-3.5 text-base bg-gradient-to-r from-blue-600 to-purple-600 border-0" disabled={isLoading}>
+              <button type="submit" className="btn-primary w-full py-3.5 text-base border-0" disabled={isLoading}>
                 {isLoading ? (
                   <Icon icon="mdi:loading" className="animate-spin text-2xl" />
                 ) : (
@@ -153,7 +153,7 @@ export default function Register() {
         </div>
 
         <div className="mt-8 text-center text-xs font-semibold text-secondary-400 dark:text-secondary-600">
-            Hecho por <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Biznovatech</span>
+            Hecho por <span className="text-blue-500">Biznovatech</span>
         </div>
       </motion.div>
     </div>

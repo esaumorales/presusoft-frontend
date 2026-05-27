@@ -218,7 +218,7 @@ export default function TemplateEditor() {
             disabled={saving}
             className="btn-primary"
             style={{
-              background: 'linear-gradient(135deg, #3c6690 0%, #1e2b39 100%)',
+              background: '#1e2b39',
               boxShadow: '0 4px 12px rgba(30,43,57,0.15)',
               padding: '10px 24px',
             }}
@@ -240,78 +240,141 @@ export default function TemplateEditor() {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2.5fr', gap: 20, alignItems: 'start' }}>
-        {/* Metadata Sidebar Card */}
-        <div style={{ ...card, padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.text, borderBottom: `1px solid ${C.border2}`, paddingBottom: 10 }}>
-            Información General
-          </h2>
+        {/* Left Column: Metadata & Live Preview */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Metadata Sidebar Card */}
+          <div style={{ ...card, padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.text, borderBottom: `1px solid ${C.border2}`, paddingBottom: 10 }}>
+              Información General
+            </h2>
 
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Nombre de la Plantilla *</label>
-            <input
-              name="name"
-              value={template.name}
-              onChange={handleMetadataChange}
-              placeholder="Ej. App Móvil Estándar"
-              style={{
-                width: '100%',
-                border: `1.5px solid ${C.border}`,
-                borderRadius: 7,
-                padding: '9px 12px',
-                fontSize: 13,
-                color: C.text,
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Nombre de la Plantilla *</label>
+              <input
+                name="name"
+                value={template.name}
+                onChange={handleMetadataChange}
+                placeholder="Ej. App Móvil Estándar"
+                style={{
+                  width: '100%',
+                  border: `1.5px solid ${C.border}`,
+                  borderRadius: 7,
+                  padding: '9px 12px',
+                  fontSize: 13,
+                  color: C.text,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Categoría</label>
+              <select
+                name="category"
+                value={template.category || ''}
+                onChange={handleMetadataChange}
+                style={{
+                  width: '100%',
+                  border: `1.5px solid ${C.border}`,
+                  borderRadius: 7,
+                  padding: '9px 12px',
+                  fontSize: 13,
+                  color: C.text,
+                  outline: 'none',
+                  background: C.white,
+                }}
+              >
+                <option value="">Sin categoría</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Descripción</label>
+              <textarea
+                name="description"
+                value={template.description || ''}
+                onChange={handleMetadataChange}
+                rows={4}
+                placeholder="Explica qué incluye esta plantilla..."
+                style={{
+                  width: '100%',
+                  border: `1.5px solid ${C.border}`,
+                  borderRadius: 7,
+                  padding: '9px 12px',
+                  fontSize: 13,
+                  color: C.text,
+                  outline: 'none',
+                  resize: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Categoría</label>
-            <select
-              name="category"
-              value={template.category || ''}
-              onChange={handleMetadataChange}
-              style={{
-                width: '100%',
-                border: `1.5px solid ${C.border}`,
-                borderRadius: 7,
-                padding: '9px 12px',
-                fontSize: 13,
-                color: C.text,
-                outline: 'none',
-                background: C.white,
-              }}
-            >
-              <option value="">Sin categoría</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Live Preview Card */}
+          <div style={{ ...card, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 18px', background: C.s50, borderBottom: `1px solid ${C.border}`, fontWeight: 700, color: C.text2, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
+              <Icon icon="mdi:eye-outline" style={{ fontSize: 18 }} /> Vista Previa
+            </div>
+            <div style={{ height: 400, position: 'relative', overflow: 'hidden', background: C.s100 }}>
+              {/* Scaled Document View */}
+              <div style={{ width: '250%', height: '250%', transform: 'scale(0.4)', transformOrigin: 'top left', background: C.white, padding: 32, pointerEvents: 'none', display: 'flex', flexDirection: 'column' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${C.s200}`, paddingBottom: 20, marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 44, height: 44, background: C.s900, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon icon="mdi:rocket-launch" style={{ color: 'white', fontSize: 26 }} />
+                    </div>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: C.s900 }}>{template.name || 'Sin Título'}</h2>
+                      <p style={{ margin: 0, color: C.s500, fontSize: 15, fontWeight: 500 }}>{template.category || 'Estructura Estándar'}</p>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: C.s300, letterSpacing: 1 }}>PRESUPUESTO</div>
+                    <div style={{ fontSize: 15, color: C.s400, fontWeight: 600 }}>{(template.modules || []).length} Módulo{(template.modules || []).length !== 1 && 's'}</div>
+                  </div>
+                </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 5 }}>Descripción</label>
-            <textarea
-              name="description"
-              value={template.description || ''}
-              onChange={handleMetadataChange}
-              rows={4}
-              placeholder="Explica qué incluye esta plantilla..."
-              style={{
-                width: '100%',
-                border: `1.5px solid ${C.border}`,
-                borderRadius: 7,
-                padding: '9px 12px',
-                fontSize: 13,
-                color: C.text,
-                outline: 'none',
-                resize: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
+                {/* Modules */}
+                <div style={{ flex: 1 }}>
+                {(template.modules || []).length > 0 ? (
+                  (template.modules || []).map((mod, mIdx) => (
+                    <div key={mIdx} style={{ marginBottom: 16, border: `1.5px solid ${C.s200}`, borderRadius: 10, overflow: 'hidden' }}>
+                      <div style={{ background: C.s50, padding: '14px 18px', fontWeight: 800, color: C.s800, fontSize: 17, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <Icon icon="mdi:folder-outline" style={{ color: C.s500, fontSize: 20 }} />
+                          {mod.name || 'Módulo Nuevo'}
+                        </div>
+                        <span style={{ fontSize: 14, color: C.s500, fontWeight: 600 }}>Subtotal</span>
+                      </div>
+                      {(mod.tasks || []).map((task, tIdx) => (
+                        <div key={tIdx} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 18px', borderTop: `1px solid ${C.s100}`, color: C.s600, fontSize: 16, background: '#fff' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <Icon icon="mdi:check-circle-outline" style={{ color: C.s400, fontSize: 16 }} />
+                            <span>{task.name || 'Tarea sin título'}</span>
+                          </div>
+                          <span style={{ fontWeight: 700, color: C.s800 }}>$ {(Number(task.estimatedHours||0)*Number(task.defaultRate||0)).toLocaleString('en-US',{minimumFractionDigits:2})}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: 40, border: `2px dashed ${C.s200}`, borderRadius: 12, textAlign: 'center', color: C.s400, background: C.s50, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <Icon icon="mdi:file-document-outline" style={{ fontSize: 56, marginBottom: 12, opacity: 0.5 }} />
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>Plantilla Vacía</div>
+                    <div style={{ fontSize: 15, fontWeight: 500, marginTop: 4 }}>Agrega contenido para previsualizar.</div>
+                  </div>
+                )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -64,7 +64,7 @@ const DashboardMockup = () => (
 
         {/* Big Chart Area */}
         <div className="flex-1 bg-white dark:bg-secondary-800 rounded-2xl border border-secondary-100 dark:border-secondary-700 shadow-md p-6 flex flex-col gap-4 transform translate-z-20 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-t from-blue-50/50 dark:from-secondary-900/50 to-transparent"></div>
+          <div className="absolute inset-0 bg-blue-50/50 dark:bg-secondary-900/50"></div>
           <div className="flex justify-between items-center relative z-10">
             <div className="h-6 w-48 bg-secondary-100 dark:bg-secondary-700 rounded-md"></div>
             <div className="h-8 w-24 bg-secondary-50 dark:bg-secondary-900 rounded-full border border-secondary-200 dark:border-secondary-600"></div>
@@ -89,7 +89,14 @@ const DashboardMockup = () => (
 );
 
 export default function LandingPage() {
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('theme');
+      if (stored) return stored === 'dark';
+      return document.documentElement.classList.contains('dark');
+    }
+    return false;
+  });
   const containerRef = useRef(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -105,17 +112,12 @@ export default function LandingPage() {
   const yMockup = useTransform(scrollYProgress, [0, 0.2], [0, -100]);
 
   useEffect(() => {
-    // Check system preference on load
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setIsDark(true);
-    }
-  }, []);
-
-  useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
     }
   }, [isDark]);
 
@@ -137,8 +139,7 @@ export default function LandingPage() {
           className="absolute top-[40%] -left-[10%] w-[40vw] h-[40vw] rounded-full bg-purple-400/20 dark:bg-purple-900/20 blur-[120px]"
         />
         
-        {/* Grid pattern overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#829ab1_1px,transparent_1px),linear-gradient(to_bottom,#829ab1_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#334e68_1px,transparent_1px),linear-gradient(to_bottom,#334e68_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_0%,#000_20%,transparent_100%)] opacity-20"></div>
+        {/* Grid pattern overlay removed */}
       </div>
 
       {/* Glassmorphism Navbar */}
@@ -159,19 +160,25 @@ export default function LandingPage() {
           {/* Theme Toggle */}
           <button 
             onClick={toggleDark}
-            className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 text-secondary-600 dark:text-secondary-300 transition-colors"
+            className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800 text-secondary-600 dark:text-secondary-300 transition-colors"
           >
-            <AnimatePresence mode="wait">
-              {isDark ? (
-                <motion.div key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}>
-                  <Icon icon="mdi:white-balance-sun" className="text-2xl" />
-                </motion.div>
-              ) : (
-                <motion.div key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }}>
-                  <Icon icon="mdi:moon-and-stars" className="text-2xl" />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <motion.div 
+              initial={false}
+              animate={{ opacity: isDark ? 1 : 0, rotate: isDark ? 0 : -90, scale: isDark ? 1 : 0.5 }}
+              transition={{ duration: 0.2 }}
+              className="absolute"
+            >
+              <Icon icon="mdi:weather-sunny" className="text-2xl" />
+            </motion.div>
+            
+            <motion.div 
+              initial={false}
+              animate={{ opacity: isDark ? 0 : 1, rotate: isDark ? 90 : 0, scale: isDark ? 0.5 : 1 }}
+              transition={{ duration: 0.2 }}
+              className="absolute"
+            >
+              <Icon icon="mdi:moon-and-stars" className="text-2xl" />
+            </motion.div>
           </button>
 
           <Link to="/login" className="hidden md:inline-flex font-semibold text-secondary-700 dark:text-secondary-200 hover:text-secondary-900 dark:hover:white px-4">
@@ -198,7 +205,7 @@ export default function LandingPage() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
           </span>
-          Sistema Presupuestario Inteligente v2.0
+          Sistema Presupuestario Inteligente
         </motion.div>
 
         <motion.h1 
@@ -208,7 +215,7 @@ export default function LandingPage() {
           className="text-6xl md:text-8xl font-black text-secondary-900 dark:text-white mb-8 max-w-5xl tracking-tighter leading-[1.1]"
         >
           Cotiza con precisión <br className="hidden md:block"/>
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 filter drop-shadow-sm">
+          <span className="text-blue-600 dark:text-blue-400 filter drop-shadow-sm">
             absoluta.
           </span>
         </motion.h1>
@@ -273,7 +280,7 @@ export default function LandingPage() {
             className="text-center mb-32"
           >
             <h2 className="text-5xl md:text-7xl font-black text-secondary-900 dark:text-white mb-6 tracking-tighter">
-              El fin del <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">Excel</span> tradicional.
+              El fin del <span className="text-red-500">Excel</span> tradicional.
             </h2>
             <p className="text-xl text-secondary-600 dark:text-secondary-300 max-w-3xl mx-auto font-medium">Una experiencia visual inmersiva que oculta un motor matemático capaz de calcular cientos de variables en milisegundos.</p>
           </motion.div>
@@ -337,7 +344,7 @@ export default function LandingPage() {
                   <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/20 blur-3xl rounded-full"></div>
                   <div className="text-center relative z-10">
                     <p className="text-secondary-500 dark:text-secondary-400 text-lg mb-2 font-medium">Subtotal Dinámico</p>
-                    <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-secondary-900 to-secondary-600 dark:from-white dark:to-secondary-300 tracking-tighter">
+                    <div className="text-6xl font-black text-secondary-900 dark:text-white tracking-tighter">
                       $24,500<span className="text-4xl">.00</span>
                     </div>
                     <div className="mt-6 flex justify-center gap-2">
@@ -355,7 +362,7 @@ export default function LandingPage() {
       {/* Massive CTA Section */}
       <section className="relative z-20 py-32 overflow-hidden border-t border-secondary-200 dark:border-secondary-800">
         <div className="absolute inset-0 bg-secondary-900 dark:bg-black"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur-[150px] opacity-40 animate-pulse pointer-events-none"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-600 dark:bg-blue-900 rounded-full blur-[150px] opacity-20 animate-pulse pointer-events-none"></div>
         
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           <motion.h2 
@@ -397,7 +404,7 @@ export default function LandingPage() {
             <span className="font-bold tracking-tight text-white">PresuSoft</span>
           </div>
           <div className="text-sm font-medium">
-            Hecho con <Icon icon="mdi:heart" className="inline text-red-500 mx-1" /> por <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Biznovatech</span>.
+            Hecho con <Icon icon="mdi:heart" className="inline text-red-500 mx-1" /> por <span className="font-bold text-blue-500">Biznovatech</span>.
           </div>
         </div>
       </footer>

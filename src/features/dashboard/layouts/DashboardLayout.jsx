@@ -1,22 +1,24 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../../core/store/useAuthStore';
-
-// Forzar siempre modo claro dentro del dashboard
-if (typeof document !== 'undefined') {
-  document.documentElement.classList.remove('dark');
-}
+import { useEffect } from 'react';
 
 export default function DashboardLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
+  useEffect(() => {
+    // Forzar siempre modo claro dentro del dashboard al montar
+    document.documentElement.classList.remove('dark');
+  }, []);
+
   const handleLogout = () => { logout(); navigate('/login'); };
 
   const navItems = [
     { name: 'Proyectos',     path: '/budgets',      icon: 'mdi:file-document-outline' },
     { name: 'Clientes',      path: '/clients',      icon: 'mdi:account-group-outline' },
+    { name: 'Equipo',        path: '/team',         icon: 'mdi:account-hard-hat-outline' },
     { name: 'Plantillas',    path: '/templates',    icon: 'mdi:text-box-multiple-outline' },
     { name: 'Reportes',      path: '/reports',      icon: 'mdi:chart-bar' },
     { name: 'Configuración', path: '/settings',     icon: 'mdi:cog-outline' },
