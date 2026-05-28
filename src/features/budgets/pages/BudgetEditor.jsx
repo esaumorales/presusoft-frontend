@@ -39,6 +39,15 @@ const serializeMetadata = (cleanDesc, role, priority, dependsOn) => {
 
 const TASK_DEFAULTS = { name: '', description: '', hours: '', hourlyRate: '', quantity: '1', unitPrice: '', role: '', priority: 'Media', dependsOn: '' };
 
+const MODULE_SUGGESTIONS = {
+  'Frontend': ['React', 'Vue', 'Angular', 'Astro', 'Next.js', 'Nuxt', 'Svelte', 'Tailwind', 'Bootstrap'],
+  'Backend': ['Node.js', 'Python/Django', 'Python/FastAPI', 'Java/Spring', 'PHP/Laravel', 'Ruby', 'Go', '.NET'],
+  'Base de Datos': ['PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'Firebase', 'Supabase', 'SQL Server'],
+  'Infra / Cloud': ['AWS', 'Google Cloud', 'Azure', 'Docker', 'Kubernetes', 'Vercel', 'Heroku'],
+  'App Móvil': ['React Native', 'Flutter', 'Swift (iOS)', 'Kotlin (Android)', 'Ionic'],
+  'Otros': ['Diseño UI/UX', 'Testing & QA', 'Project Management', 'SEO', 'Analytics']
+};
+
 export default function BudgetEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -83,6 +92,9 @@ export default function BudgetEditor() {
   // Modals
   const [moduleModal, setModuleModal] = useState(false);
   const [moduleName, setModuleName] = useState('');
+  const [multiModules, setMultiModules] = useState([]);
+  const [moduleCategory, setModuleCategory] = useState('Frontend');
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [editModule, setEditModule] = useState(null);
 
   const [taskModal, setTaskModal] = useState(null); // null | moduleId
@@ -167,20 +179,35 @@ export default function BudgetEditor() {
   };
 
   /* ---- MODULES ---- */
-  const openAddModule = () => { setEditModule(null); setModuleName(''); setModuleModal(true); };
+  const openAddModule = () => { setEditModule(null); setModuleName(''); setMultiModules([]); setModuleModal(true); };
   const openEditModule = (mod) => { setEditModule(mod); setModuleName(mod.name); setModuleModal(true); };
 
   const saveModule = async () => {
-    if (!moduleName.trim()) return;
+    if (editModule && !moduleName.trim()) return;
+    if (!editModule && multiModules.length === 0 && !moduleName.trim()) return;
+    
     setSaving(true);
     try {
       if (editModule) {
         await budgetModulesService.update(editModule.id, { name: moduleName });
       } else {
-        await budgetModulesService.create(budget.projectId, {
-          name: moduleName,
-          orderNumber: (budget?.project?.modules?.length || 0) + 1
-        });
+        if (multiModules.length > 0) {
+          let order = (budget?.project?.modules?.length || 0);
+          for (const m of multiModules) {
+            if (m.name.trim()) {
+              order++;
+              await budgetModulesService.create(budget.projectId, {
+                name: m.name,
+                orderNumber: order
+              });
+            }
+          }
+        } else if (moduleName.trim()) {
+          await budgetModulesService.create(budget.projectId, {
+            name: moduleName,
+            orderNumber: (budget?.project?.modules?.length || 0) + 1
+          });
+        }
       }
       await fetchBudget();
       setModuleModal(false);
@@ -1257,16 +1284,308 @@ export default function BudgetEditor() {
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-secondary-950/40 glass-effect"
             onClick={e => e.target === e.currentTarget && setModuleModal(false)}>
             <motion.div initial={{ scale: 0.95, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 15 }}
-              className="bg-white rounded-xl shadow-2xl border border-secondary-200 w-full max-w-md p-6 space-y-4">
-              <h2 className="text-lg font-bold text-secondary-950">{editModule ? 'Editar Módulo' : 'Nuevo Módulo'}</h2>
-              <div>
-                <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Nombre del Módulo *</label>
-                <input value={moduleName} onChange={e => setModuleName(e.target.value)} placeholder="Ej. Backend, Frontend, QA..." className="input-base" />
+              className="bg-white rounded-2xl shadow-2xl border border-secondary-200 w-full max-w-4xl p-6 space-y-5">
+              
+              <div className="flex justify-between items-center border-b border-secondary-100 pb-3">
+                <h2 className="text-xl font-black text-secondary-950 flex items-center gap-2">
+                  <Icon icon={editModule ? 'mdi:pencil-box-multiple' : 'mdi:plus-box-multiple'} className="text-secondary-500" /> 
+                  {editModule ? 'Editar Módulo' : 'Generador de Módulo'}
+                </h2>
+                <button onClick={() => setModuleModal(false)} className="text-secondary-400 hover:text-secondary-700 transition-colors">
+                  <Icon icon="mdi:close" className="text-2xl" />
+                </button>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setModuleModal(false)} className="btn-secondary flex-1">Cancelar</button>
-                <button onClick={saveModule} disabled={saving} className="btn-primary flex-1">
-                  {saving ? <Icon icon="mdi:loading" className="animate-spin text-xl" /> : 'Guardar'}
+
+              {/* Two-Column Drag and Drop Layout */}
+              {!editModule && (() => {
+                const projectRolesRaw = budget?.teamMembers?.map(tm => tm.projectRole || tm.collaborator?.role || tm.collaborator?.name).filter(Boolean) || [];
+                const rolesStr = projectRolesRaw.join(' ').toLowerCase();
+                
+                const showFront = projectRolesRaw.length === 0 || rolesStr.includes('front') || rolesStr.includes('full') || rolesStr.includes('web') || rolesStr.includes('ui');
+                const showBack = projectRolesRaw.length === 0 || rolesStr.includes('back') || rolesStr.includes('full') || rolesStr.includes('api');
+                const showData = projectRolesRaw.length === 0 || rolesStr.includes('data') || rolesStr.includes('base') || rolesStr.includes('sql') || rolesStr.includes('full') || rolesStr.includes('back');
+                const showInfra = projectRolesRaw.length === 0 || rolesStr.includes('infra') || rolesStr.includes('cloud') || rolesStr.includes('devops') || rolesStr.includes('aws');
+                const showMovil = projectRolesRaw.length === 0 || rolesStr.includes('movil') || rolesStr.includes('mobile') || rolesStr.includes('ios') || rolesStr.includes('android');
+
+                const dynamicSuggestions = {};
+                if (showFront) dynamicSuggestions['Frontend'] = MODULE_SUGGESTIONS['Frontend'];
+                if (showBack) dynamicSuggestions['Backend'] = MODULE_SUGGESTIONS['Backend'];
+                if (showData) dynamicSuggestions['Base de Datos'] = MODULE_SUGGESTIONS['Base de Datos'];
+                if (showInfra) dynamicSuggestions['Infra / Cloud'] = MODULE_SUGGESTIONS['Infra / Cloud'];
+                if (showMovil) dynamicSuggestions['App Móvil'] = MODULE_SUGGESTIONS['App Móvil'];
+                dynamicSuggestions['Otros'] = MODULE_SUGGESTIONS['Otros'];
+
+                const uniqueProjectRoles = [...new Set(projectRolesRaw)];
+                if (uniqueProjectRoles.length > 0) {
+                  dynamicSuggestions['Equipo / Roles'] = uniqueProjectRoles;
+                }
+
+                // Obtener todas las etiquetas seleccionadas buscando ocurrencias
+                const allPossibleTags = Object.values(dynamicSuggestions).flat();
+                const selectedTags = editModule 
+                  ? allPossibleTags.filter(t => moduleName.includes(t))
+                  : allPossibleTags.filter(t => multiModules.some(m => m.name.includes(t)));
+
+                const toggleTech = (tech, category) => {
+                  if (editModule) {
+                    setModuleName(prev => {
+                      if (prev.includes(tech)) {
+                        let updated = prev.replace(tech, '');
+                        updated = updated.replace(/,\s*,/g, ', ').replace(/\(\s*,/g, '(').replace(/,\s*\)/g, ')').replace(/\s+/g, ' ');
+                        updated = updated.replace(/^,\s*/, '').replace(/,\s*$/, '');
+                        if (updated.endsWith(' ()')) updated = updated.replace(' ()', '');
+                        if (updated === '()') updated = '';
+                        return updated.trim();
+                      } else {
+                        let cleanCat = category || 'Módulo';
+                        if (cleanCat === 'Equipo / Roles' || cleanCat === 'Otros') cleanCat = 'Módulo';
+                        
+                        if (!prev) return `${cleanCat} (${tech})`;
+                        
+                        const match = prev.match(/^(.*?)\s*\((.*)\)$/);
+                        if (match) {
+                          let base = match[1].trim();
+                          const currentTechs = match[2].trim();
+                          if (cleanCat !== 'Módulo' && !base.includes(cleanCat)) {
+                            base = `${base} & ${cleanCat}`;
+                          }
+                          return `${base} (${currentTechs ? currentTechs + ', ' : ''}${tech})`;
+                        } else {
+                          if (!prev.includes('(')) {
+                            return `${prev.trim()} (${tech})`;
+                          }
+                          return `${prev.trim()}, ${tech}`;
+                        }
+                      }
+                    });
+                  } else {
+                    setMultiModules(prev => {
+                      let exists = false;
+                      let next = prev.map(m => {
+                         if (m.name.includes(tech)) {
+                            exists = true;
+                            let newName = m.name.replace(tech, '');
+                            newName = newName.replace(/,\s*,/g, ', ').replace(/\(\s*,/g, '(').replace(/,\s*\)/g, ')').replace(/\s+/g, ' ').replace(/^,\s*/, '').replace(/,\s*$/, '').trim();
+                            if (newName.endsWith(' ()')) newName = newName.replace(' ()', '');
+                            if (newName === '()') newName = '';
+                            return { ...m, name: newName };
+                         }
+                         return m;
+                      }).filter(m => m.name !== '');
+
+                      if (exists) return next;
+
+                      let cleanCat = category || 'Módulo';
+                      if (cleanCat === 'Equipo / Roles' || cleanCat === 'Otros') cleanCat = 'Módulo';
+
+                      const idx = next.findIndex(m => m.name.startsWith(cleanCat));
+                      if (idx >= 0) {
+                          const m = next[idx];
+                          const match = m.name.match(/^(.*?)\s*\((.*)\)$/);
+                          let newName = '';
+                          if (match) {
+                             newName = `${match[1].trim()} (${match[2].trim() ? match[2].trim() + ', ' : ''}${tech})`;
+                          } else {
+                             newName = `${m.name} (${tech})`;
+                          }
+                          next[idx] = { ...m, name: newName };
+                          return [...next];
+                      } else {
+                          return [...next, { id: Date.now(), name: `${cleanCat} (${tech})` }];
+                      }
+                    });
+                  }
+                };
+
+                return (
+                  <div className="flex flex-col gap-4">
+                    <p className="text-xs text-secondary-500">Arrastra las tecnologías o roles hacia la otra caja para agregarlas al módulo.</p>
+                    <div className="flex flex-col md:flex-row gap-6 items-stretch">
+                      
+                      {/* Izquierda: Disponibles */}
+                      <div className="flex-1 bg-secondary-50 rounded-2xl p-5 border border-secondary-200 min-h-[400px] max-h-[500px] overflow-y-auto">
+                        <h4 className="text-[11px] font-black text-secondary-600 uppercase tracking-wider mb-5">Disponibles</h4>
+                        <div className="space-y-6">
+                          {Object.entries(dynamicSuggestions).map(([cat, techs]) => {
+                            const availableTechs = editModule 
+                              ? techs.filter(t => !moduleName.includes(t))
+                              : techs.filter(t => !multiModules.some(m => m.name.includes(t)));
+
+                            if (availableTechs.length === 0) return null;
+                            
+                            return (
+                              <div key={cat}>
+                                <h5 className="text-[10px] font-bold text-secondary-400 uppercase mb-2">{cat}</h5>
+                                <div className="flex flex-col gap-2">
+                                  {availableTechs.map(tech => (
+                                    <div
+                                      key={tech}
+                                      draggable
+                                      onDragStart={(e) => {
+                                        e.dataTransfer.setData('text/plain', JSON.stringify({ category: cat, tech }));
+                                        e.dataTransfer.effectAllowed = 'copy';
+                                      }}
+                                      className="bg-white rounded-xl p-3 flex items-center justify-between border border-secondary-200 cursor-grab active:cursor-grabbing hover:border-indigo-400 hover:shadow-sm transition-all"
+                                    >
+                                      <span className="text-xs font-bold text-secondary-700">{tech}</span>
+                                      <button 
+                                        type="button" 
+                                        onClick={() => toggleTech(tech, cat)} 
+                                        className="text-secondary-400 hover:text-indigo-600 transition-colors"
+                                      >
+                                        <Icon icon="mdi:plus-circle" className="text-xl" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Derecha: Seleccionados */}
+                      <div 
+                        className={`flex-1 rounded-2xl p-5 transition-all duration-300 border-2 flex flex-col ${
+                          isDraggingOver 
+                            ? 'bg-indigo-50 border-dashed border-indigo-400 shadow-inner' 
+                            : (selectedTags.length > 0 || multiModules.length > 0 ? 'bg-[#f0fdf4] border-solid border-green-500' : 'bg-white border-dashed border-secondary-200')
+                        }`}
+                        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+                        onDragEnter={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
+                        onDragLeave={(e) => { e.preventDefault(); setIsDraggingOver(false); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDraggingOver(false);
+                          try {
+                            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                            const alreadyAdded = editModule ? moduleName.includes(data.tech) : multiModules.some(m => m.name.includes(data.tech));
+                            if (data.tech && !alreadyAdded) toggleTech(data.tech, data.category);
+                          } catch (err) {}
+                        }}
+                      >
+                        <h4 className={`text-[11px] font-black uppercase tracking-wider mb-5 flex items-center gap-2 ${selectedTags.length > 0 || multiModules.length > 0 ? 'text-green-600' : 'text-secondary-400'}`}>
+                          {editModule ? 'Módulo' : 'Módulos a Crear'} ({editModule ? selectedTags.length : multiModules.length})
+                        </h4>
+                        
+                        <div className="flex-1 overflow-y-auto mb-4">
+                          {!editModule && multiModules.length === 0 && (
+                            <div className="h-full flex flex-col items-center justify-center text-secondary-400 opacity-50 py-10">
+                              <Icon icon="mdi:drag-variant" className="text-5xl mb-2" />
+                            </div>
+                          )}
+                          
+                          {editModule && selectedTags.length === 0 && (
+                            <div className="h-full flex flex-col items-center justify-center text-secondary-400 opacity-50 py-10">
+                              <Icon icon="mdi:drag-variant" className="text-5xl mb-2" />
+                            </div>
+                          )}
+
+                          {!editModule && multiModules.length > 0 && (
+                            <div className="flex flex-col gap-4">
+                               {multiModules.map(m => {
+                                  const match = m.name.match(/^(.*?)\s*\((.*)\)$/);
+                                  const techs = match && match[2] ? match[2].split(',').map(t=>t.trim()) : [];
+                                  
+                                  return (
+                                    <div key={m.id} className="bg-white rounded-xl p-3 border border-green-500 shadow-sm flex flex-col gap-3">
+                                      <div className="flex flex-wrap gap-2">
+                                        {techs.map(tech => (
+                                          <div key={tech} className="flex items-center gap-1.5 bg-green-50 text-green-700 px-2.5 py-1 rounded-lg text-[10px] font-bold">
+                                            <span>{tech}</span>
+                                            <button type="button" onClick={() => toggleTech(tech)} className="hover:text-red-500 transition-colors">
+                                              <Icon icon="mdi:close" className="text-sm" />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <input 
+                                        value={m.name} 
+                                        onChange={e => setMultiModules(prev => prev.map(mod => mod.id === m.id ? { ...mod, name: e.target.value } : mod))}
+                                        className="w-full border border-secondary-200 rounded-lg py-1.5 px-3 text-xs text-secondary-900 font-bold focus:border-indigo-500 outline-none"
+                                      />
+                                    </div>
+                                  );
+                               })}
+                            </div>
+                          )}
+
+                          {editModule && selectedTags.length > 0 && (
+                            <div className="flex flex-col gap-2">
+                              {selectedTags.map(tech => (
+                                <div 
+                                  key={tech} 
+                                  className="bg-white rounded-xl p-3 flex items-center justify-between border border-green-500 shadow-sm"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center">
+                                      <Icon icon="mdi:check-circle" className="text-lg" />
+                                    </div>
+                                    <span className="text-xs font-bold text-secondary-900">{tech}</span>
+                                  </div>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => toggleTech(tech)} 
+                                    className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+                                  >
+                                    <Icon icon="mdi:close" className="text-lg" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Input Final para edición única */}
+                        {editModule && (
+                          <div className="pt-4 border-t border-secondary-200">
+                            <label className="block text-[10px] font-bold text-secondary-500 uppercase mb-1.5">Nombre Final (Editable)</label>
+                            <div className="relative">
+                              <input 
+                                value={moduleName} 
+                                onChange={e => setModuleName(e.target.value)} 
+                                placeholder="Ej. Frontend (React, Tailwind)..." 
+                                className="w-full border-2 border-secondary-200 rounded-xl py-3 px-4 text-secondary-900 font-bold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all bg-white"
+                              />
+                              {moduleName && (
+                                <button 
+                                  onClick={() => setModuleName('')}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-700"
+                                >
+                                  <Icon icon="mdi:close-circle" className="text-lg" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {!editModule && multiModules.length === 0 && (
+                          <div className="pt-4 border-t border-secondary-200">
+                            <label className="block text-[10px] font-bold text-secondary-500 uppercase mb-1.5">Nombre (Si no arrastras nada)</label>
+                            <input 
+                              value={moduleName} 
+                              onChange={e => setModuleName(e.target.value)} 
+                              placeholder="Módulo personalizado..." 
+                              className="w-full border-2 border-secondary-200 rounded-xl py-3 px-4 text-secondary-900 font-bold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all bg-white"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Botones */}
+              <div className="flex gap-3 pt-4 border-t border-secondary-100">
+                <button onClick={() => setModuleModal(false)} className="btn-secondary flex-1 py-2.5 bg-white border-2">Cancelar</button>
+                <button onClick={saveModule} disabled={saving || !moduleName.trim()} className="btn-primary flex-1 py-2.5 shadow-lg shadow-indigo-500/20">
+                  {saving ? <Icon icon="mdi:loading" className="animate-spin text-xl" /> : (
+                    <div className="flex items-center justify-center gap-2">
+                      <Icon icon="mdi:check-circle" className="text-lg" />
+                      {editModule ? 'Guardar Cambios' : 'Crear Módulo'}
+                    </div>
+                  )}
                 </button>
               </div>
             </motion.div>
