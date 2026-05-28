@@ -110,10 +110,13 @@ export default function BudgetEditor() {
   const [applyModal, setApplyModal] = useState(false);
   const [compareModal, setCompareModal] = useState(null); // null | version object
 
-  // Vista Previa & Save as Template States
   const [viewMode, setViewMode] = useState('edit'); // 'edit' | 'preview'
   const [saveTemplateModal, setSaveTemplateModal] = useState(false);
   const [templateForm, setTemplateForm] = useState({ name: '', category: 'Desarrollo Web', description: '' });
+
+  // Global settings
+  const [globalModal, setGlobalModal] = useState(false);
+  const [globalForm, setGlobalForm] = useState({ title: '', description: '', estimatedDuration: '', validityDays: 15 });
 
   const fetchBudget = async () => {
     try {
@@ -438,6 +441,25 @@ export default function BudgetEditor() {
     }
   };
 
+  const handleSaveGlobal = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await budgetsService.update(id, {
+        title: globalForm.title,
+        description: globalForm.description,
+        estimatedDuration: globalForm.estimatedDuration || undefined,
+        validityDays: Number(globalForm.validityDays) || 15
+      });
+      await fetchBudget();
+      setGlobalModal(false);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al actualizar detalles');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   /* ---- AI MODEL GENERATION ---- */
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -558,9 +580,29 @@ export default function BudgetEditor() {
             <span className="font-mono text-xs font-bold text-secondary-400 bg-secondary-100 px-2 py-0.5 rounded">{budget?.code}</span>
             <span className="px-2.5 py-0.5 text-xs font-bold rounded-full" style={{ color: sc.color, backgroundColor: sc.bg }}>{sc.label}</span>
           </div>
-          <h1 className="text-2xl font-black text-secondary-900">{budget?.title}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-secondary-900">{budget?.title}</h1>
+            {!isLocked && (
+              <button 
+                onClick={() => {
+                  setGlobalForm({
+                    title: budget?.title || '',
+                    description: budget?.description || '',
+                    estimatedDuration: budget?.project?.estimatedDuration || '',
+                    validityDays: budget?.validityDays || 15
+                  });
+                  setGlobalModal(true);
+                }}
+                className="text-secondary-400 hover:text-blue-600 transition-colors p-1"
+                title="Editar detalles del proyecto"
+              >
+                <Icon icon="mdi:pencil-outline" className="text-xl" />
+              </button>
+            )}
+          </div>
           <p className="text-secondary-500 text-sm mt-1">
             Cliente: {budget?.project?.client?.name || budget?.client?.name || 'Sin cliente'}
+            {budget?.project?.estimatedDuration && ` | Duración: ${budget.project.estimatedDuration}`}
           </p>
         </div>
 
@@ -1298,7 +1340,7 @@ export default function BudgetEditor() {
               </div>
 
               {/* Two-Column Drag and Drop Layout */}
-              {!editModule && (() => {
+              {(() => {
                 const projectRolesRaw = budget?.teamMembers?.map(tm => tm.projectRole || tm.collaborator?.role || tm.collaborator?.name).filter(Boolean) || [];
                 const rolesStr = projectRolesRaw.join(' ').toLowerCase();
                 
@@ -2295,6 +2337,63 @@ export default function BudgetEditor() {
             <button onClick={() => setToast(null)} className="ml-2 opacity-60 hover:opacity-100">
               <Icon icon="mdi:close" />
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── GLOBAL SETTINGS MODAL ── */}
+      <AnimatePresence>
+        {globalModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && setGlobalModal(false)}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between p-5 border-b border-secondary-100 bg-secondary-50">
+                <h3 className="font-bold text-secondary-900 text-lg flex items-center gap-2">
+                  <Icon icon="mdi:pencil-box-multiple-outline" className="text-secondary-500 text-xl" />
+                  Detalles del Proyecto
+                </h3>
+                <button onClick={() => setGlobalModal(false)} className="text-secondary-400 hover:bg-secondary-200 p-1.5 rounded-lg transition-colors">
+                  <Icon icon="mdi:close" className="text-xl" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveGlobal} className="p-5 overflow-y-auto space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-secondary-700 mb-1">Nombre del Proyecto</label>
+                  <input type="text" value={globalForm.title} onChange={e => setGlobalForm({ ...globalForm, title: e.target.value })} required className="input-base" placeholder="Ej: Desarrollo E-commerce" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-secondary-700 mb-1">Descripción / Alcance</label>
+                  <textarea value={globalForm.description} onChange={e => setGlobalForm({ ...globalForm, description: e.target.value })} rows={4} className="input-base resize-none" placeholder="Breve descripción del proyecto..." />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-secondary-700 mb-1">Duración Estimada</label>
+                    <select value={globalForm.estimatedDuration} onChange={e => setGlobalForm({ ...globalForm, estimatedDuration: e.target.value })} className="input-base cursor-pointer">
+                      <option value="">No especificado</option>
+                      <option value="1 Mes">1 Mes</option>
+                      <option value="2 Meses">2 Meses</option>
+                      <option value="3 Meses">3 Meses</option>
+                      <option value="4 Meses">4 Meses</option>
+                      <option value="6 Meses">6 Meses</option>
+                      <option value="1 Año">1 Año</option>
+                      <option value="Más de 1 Año">Más de 1 Año</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-secondary-700 mb-1">Validez (Días)</label>
+                    <input type="number" min="1" value={globalForm.validityDays} onChange={e => setGlobalForm({ ...globalForm, validityDays: e.target.value })} className="input-base" />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-secondary-100">
+                  <button type="button" onClick={() => setGlobalModal(false)} className="btn-secondary flex-1">Cancelar</button>
+                  <button type="submit" disabled={saving} className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+                    {saving ? <Icon icon="mdi:loading" className="animate-spin text-lg" /> : <Icon icon="mdi:content-save" />}
+                    Guardar Cambios
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
