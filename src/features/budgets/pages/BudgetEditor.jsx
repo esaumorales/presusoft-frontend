@@ -45,6 +45,7 @@ const MODULE_SUGGESTIONS = {
   'Base de Datos': ['PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'Firebase', 'Supabase', 'SQL Server'],
   'Infra / Cloud': ['AWS', 'Google Cloud', 'Azure', 'Docker', 'Kubernetes', 'Vercel', 'Heroku'],
   'App Móvil': ['React Native', 'Flutter', 'Swift (iOS)', 'Kotlin (Android)', 'Ionic'],
+  'Soporte y Mantenimiento': ['1 Mes', '3 Meses', '6 Meses', '1 Año'],
   'Otros': ['Diseño UI/UX', 'Testing & QA', 'Project Management', 'SEO', 'Analytics']
 };
 
@@ -1313,6 +1314,7 @@ export default function BudgetEditor() {
                 if (showData) dynamicSuggestions['Base de Datos'] = MODULE_SUGGESTIONS['Base de Datos'];
                 if (showInfra) dynamicSuggestions['Infra / Cloud'] = MODULE_SUGGESTIONS['Infra / Cloud'];
                 if (showMovil) dynamicSuggestions['App Móvil'] = MODULE_SUGGESTIONS['App Móvil'];
+                dynamicSuggestions['Soporte y Mantenimiento'] = MODULE_SUGGESTIONS['Soporte y Mantenimiento'];
                 dynamicSuggestions['Otros'] = MODULE_SUGGESTIONS['Otros'];
 
                 const uniqueProjectRoles = [...new Set(projectRolesRaw)];
@@ -1360,9 +1362,29 @@ export default function BudgetEditor() {
                     });
                   } else {
                     setMultiModules(prev => {
+                      const techToMonths = (t) => {
+                         if (t === '1 Año') return 12;
+                         const match = t.match(/(\d+)\s+Mes/i);
+                         if (match) return parseInt(match[1], 10);
+                         return 0;
+                      };
+                      const monthsToTech = (m) => {
+                         if (m <= 0) return null;
+                         if (m % 12 === 0) return `${m/12} ${m/12 === 1 ? 'Año' : 'Años'}`;
+                         return `${m} ${m === 1 ? 'Mes' : 'Meses'}`;
+                      };
+
+                      let cleanCat = category || 'Módulo';
+                      if (cleanCat === 'Equipo / Roles' || cleanCat === 'Otros') cleanCat = 'Módulo';
+
+                      let isTimeAdd = false;
+                      if (category === 'Soporte y Mantenimiento' && techToMonths(tech) > 0) {
+                          isTimeAdd = true;
+                      }
+
                       let exists = false;
                       let next = prev.map(m => {
-                         if (m.name.includes(tech)) {
+                         if (m.name.includes(tech) && !isTimeAdd) {
                             exists = true;
                             let newName = m.name.replace(tech, '');
                             newName = newName.replace(/,\s*,/g, ', ').replace(/\(\s*,/g, '(').replace(/,\s*\)/g, ')').replace(/\s+/g, ' ').replace(/^,\s*/, '').replace(/,\s*$/, '').trim();
@@ -1375,8 +1397,27 @@ export default function BudgetEditor() {
 
                       if (exists) return next;
 
-                      let cleanCat = category || 'Módulo';
-                      if (cleanCat === 'Equipo / Roles' || cleanCat === 'Otros') cleanCat = 'Módulo';
+                      if (isTimeAdd) {
+                          const addedMonths = techToMonths(tech);
+                          const idx = next.findIndex(m => m.name.startsWith(cleanCat));
+                          if (idx >= 0) {
+                              const m = next[idx];
+                              const match = m.name.match(/^(.*?)\s*\((.*)\)$/);
+                              if (match) {
+                                  const existingTechs = match[2].split(',').map(t=>t.trim());
+                                  let totalMonths = addedMonths;
+                                  const nonTimeTechs = [];
+                                  for (const t of existingTechs) {
+                                      const tm = techToMonths(t);
+                                      if (tm > 0) totalMonths += tm;
+                                      else nonTimeTechs.push(t);
+                                  }
+                                  nonTimeTechs.push(monthsToTech(totalMonths));
+                                  next[idx] = { ...m, name: `${match[1].trim()} (${nonTimeTechs.join(', ')})` };
+                                  return [...next];
+                              }
+                          }
+                      }
 
                       const idx = next.findIndex(m => m.name.startsWith(cleanCat));
                       if (idx >= 0) {
@@ -1507,6 +1548,14 @@ export default function BudgetEditor() {
                                     </div>
                                   );
                                })}
+                               <button 
+                                 type="button"
+                                 onClick={() => setMultiModules(prev => [...prev, { id: Date.now(), name: 'Módulo Personalizado' }])}
+                                 className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-secondary-300 rounded-xl text-secondary-500 font-bold hover:bg-secondary-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
+                               >
+                                 <Icon icon="mdi:plus-circle-outline" className="text-xl" />
+                                 Añadir Módulo Personalizado
+                               </button>
                             </div>
                           )}
 

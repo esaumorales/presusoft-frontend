@@ -12,7 +12,7 @@ const btnSecondary = { padding: '10px 20px', background: C.white, color: C.text,
 const inputStyle = { width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', fontSize: 14, color: C.s900, outline: 'none', boxSizing: 'border-box' };
 const labelStyle = { display: 'block', fontSize: 13, fontWeight: 700, color: C.s700, marginBottom: 6 };
 
-const EMPTY = { title: '', description: '', clientId: '', templateId: '', currency: 'PEN', taxPercentage: 18, validityDays: 15 };
+const EMPTY = { title: '', description: '', clientId: '', templateId: '', currency: 'PEN', taxPercentage: 18, validityDays: 15, estimatedDuration: '' };
 
 export default function BudgetCreateWizard({ isOpen, onClose, onCreated }) {
   const [step, setStep] = useState(1);
@@ -116,6 +116,7 @@ export default function BudgetCreateWizard({ isOpen, onClose, onCreated }) {
         currency: form.currency,
         taxPercentage: Number(form.taxPercentage),
         validityDays: Number(form.validityDays),
+        estimatedDuration: form.estimatedDuration === '' ? undefined : form.estimatedDuration,
         team: Object.entries(teamSelection).map(([id, info]) => ({
           collaboratorId: id,
           quantity: info.quantity,
@@ -199,6 +200,21 @@ export default function BudgetCreateWizard({ isOpen, onClose, onCreated }) {
                       <option value="PEN">Soles (PEN)</option>
                       <option value="USD">Dólares (USD)</option>
                       <option value="EUR">Euros (EUR)</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div>
+                    <label style={labelStyle}>Duración Estimada</label>
+                    <select name="estimatedDuration" value={form.estimatedDuration} onChange={set} style={{...inputStyle, cursor: 'pointer'}}>
+                      <option value="">No especificado</option>
+                      <option value="1 Mes">1 Mes</option>
+                      <option value="2 Meses">2 Meses</option>
+                      <option value="3 Meses">3 Meses</option>
+                      <option value="4 Meses">4 Meses</option>
+                      <option value="6 Meses">6 Meses</option>
+                      <option value="1 Año">1 Año</option>
+                      <option value="Más de 1 Año">Más de 1 Año</option>
                     </select>
                   </div>
                   <div>
