@@ -13,7 +13,7 @@ export default function TeamList() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
-  const [form, setForm] = useState({ name: '', roles: [''], hourlyRate: 0 });
+  const [form, setForm] = useState({ name: '', roles: [''], hourlyRate: 0, currency: 'USD' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -36,10 +36,10 @@ export default function TeamList() {
     if (collaborator) {
       setEditingId(collaborator.id);
       const rolesArray = collaborator.role ? collaborator.role.split(',').map(r => r.trim()).filter(Boolean) : [''];
-      setForm({ name: collaborator.name, roles: rolesArray.length > 0 ? rolesArray : [''], hourlyRate: Number(collaborator.hourlyRate) });
+      setForm({ name: collaborator.name, roles: rolesArray.length > 0 ? rolesArray : [''], hourlyRate: Number(collaborator.hourlyRate), currency: collaborator.currency || 'USD' });
     } else {
       setEditingId(null);
-      setForm({ name: '', roles: [''], hourlyRate: 0 });
+      setForm({ name: '', roles: [''], hourlyRate: 0, currency: 'USD' });
     }
     setError('');
     setShowModal(true);
@@ -59,7 +59,8 @@ export default function TeamList() {
       const payload = {
         name: form.name,
         role: validRoles.length > 0 ? validRoles.join(', ') : 'Otros',
-        hourlyRate: Number(form.hourlyRate)
+        hourlyRate: Number(form.hourlyRate),
+        currency: form.currency
       };
 
       if (editingId) {
@@ -138,7 +139,7 @@ export default function TeamList() {
                       </span>
                     )}
                     <span style={{ fontSize: 13, color: C.s500, fontWeight: 600, marginLeft: 4 }}>
-                      ${Number(profile.hourlyRate).toLocaleString('en-US', { minimumFractionDigits: 2 })} / hr
+                      {profile.currency === 'USD' ? '$' : profile.currency === 'PEN' ? 'S/.' : '€'}{Number(profile.hourlyRate).toLocaleString('en-US', { minimumFractionDigits: 2 })} / hr
                     </span>
                   </div>
                 </div>
@@ -233,19 +234,36 @@ export default function TeamList() {
                   </button>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: C.s700, marginBottom: 6 }}>Costo Base por Hora</label>
-                  <div style={{ position: 'relative' }}>
-                    <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: C.s400, fontWeight: 700 }}>$</div>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      name="hourlyRate"
-                      value={form.hourlyRate}
-                      onChange={(e) => setForm(f => ({ ...f, hourlyRate: e.target.value }))}
-                      style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '10px 14px 10px 30px', fontSize: 14, color: C.s900, outline: 'none', boxSizing: 'border-box' }}
-                    />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: C.s700, marginBottom: 6 }}>Moneda</label>
+                    <select
+                      name="currency"
+                      value={form.currency}
+                      onChange={(e) => setForm(f => ({ ...f, currency: e.target.value }))}
+                      style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', fontSize: 14, color: C.s900, outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }}
+                    >
+                      <option value="USD">Dólares (USD)</option>
+                      <option value="PEN">Soles (PEN)</option>
+                      <option value="EUR">Euros (EUR)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: C.s700, marginBottom: 6 }}>Costo Base por Hora</label>
+                    <div style={{ position: 'relative' }}>
+                      <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: C.s400, fontWeight: 700 }}>
+                        {form.currency === 'USD' ? '$' : form.currency === 'PEN' ? 'S/.' : '€'}
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        name="hourlyRate"
+                        value={form.hourlyRate}
+                        onChange={(e) => setForm(f => ({ ...f, hourlyRate: e.target.value }))}
+                        style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '10px 14px 10px 30px', fontSize: 14, color: C.s900, outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
                   </div>
                 </div>
 

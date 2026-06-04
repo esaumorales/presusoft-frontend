@@ -40,11 +40,23 @@ const serializeMetadata = (cleanDesc, role, priority, dependsOn) => {
 const TASK_DEFAULTS = { name: '', description: '', hours: '', hourlyRate: '', quantity: '1', unitPrice: '', role: '', priority: 'Media', dependsOn: '' };
 
 const MODULE_SUGGESTIONS = {
-  'Frontend': ['React', 'Vue', 'Angular', 'Astro', 'Next.js', 'Nuxt', 'Svelte', 'Tailwind', 'Bootstrap'],
-  'Backend': ['Node.js', 'Python/Django', 'Python/FastAPI', 'Java/Spring', 'PHP/Laravel', 'Ruby', 'Go', '.NET'],
-  'Base de Datos': ['PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'Firebase', 'Supabase', 'SQL Server'],
-  'Infra / Cloud': ['AWS', 'Google Cloud', 'Azure', 'Docker', 'Kubernetes', 'Vercel', 'Heroku'],
-  'App Móvil': ['React Native', 'Flutter', 'Swift (iOS)', 'Kotlin (Android)', 'Ionic'],
+  'Frontend - Arquitectura': ['SPA (Single Page)', 'SSR (Server-Side)', 'SSG (Static)', 'Microfrontends', 'PWA'],
+  'Frontend - Tecnología': ['React', 'Vue', 'Angular', 'Astro', 'Next.js', 'Nuxt', 'Svelte'],
+  'Frontend - Estilos': ['CSS Vanilla', 'SCSS', 'Tailwind', 'Bootstrap', 'Material UI', 'Styled Components'],
+  
+  'Backend - Arquitectura': ['Monolito', 'Microservicios', 'Serverless', 'Hexagonal', 'Event-Driven'],
+  'Backend - Lenguaje': ['Node.js (JS/TS)', 'Python', 'Java', 'PHP', 'Go', 'Ruby', 'C# / .NET'],
+  'Backend - Framework': ['Express', 'NestJS', 'Django', 'FastAPI', 'Spring Boot', 'Laravel', 'ASP.NET'],
+  
+  'BD - Arquitectura': ['Relacional (SQL)', 'NoSQL', 'Grafos', 'En Memoria'],
+  'BD - Tecnología': ['PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'Firebase', 'Supabase', 'SQL Server', 'Oracle'],
+  
+  'Infra - Arquitectura': ['Cloud Nativo', 'On-Premise', 'Híbrido'],
+  'Infra - Proveedor': ['AWS', 'Google Cloud', 'Azure', 'Vercel', 'Heroku', 'DigitalOcean'],
+  'Infra - Herramientas': ['Docker', 'Kubernetes', 'Terraform', 'CI/CD Pipelines'],
+  
+  'App Móvil - Arq / Tech': ['Nativo (iOS/Android)', 'React Native', 'Flutter', 'Ionic', 'PWA Móvil'],
+
   'Soporte y Mantenimiento': ['1 Mes', '3 Meses', '6 Meses', '1 Año'],
   'Otros': ['Diseño UI/UX', 'Testing & QA', 'Project Management', 'SEO', 'Analytics']
 };
@@ -86,6 +98,7 @@ export default function BudgetEditor() {
   const [localPercentages, setLocalPercentages] = useState({
     contingencyPercentage: 0,
     marginPercentage: 0,
+    urgencyPercentage: 0,
     taxPercentage: 18,
     discountPercentage: 0,
   });
@@ -97,11 +110,13 @@ export default function BudgetEditor() {
   const [moduleCategory, setModuleCategory] = useState('Frontend');
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [editModule, setEditModule] = useState(null);
+  const [moduleIsExtra, setModuleIsExtra] = useState(false);
 
   const [taskModal, setTaskModal] = useState(null); // null | moduleId
   const [taskForm, setTaskForm] = useState(TASK_DEFAULTS);
-  const [taskType, setTaskType] = useState('hours'); // 'hours' | 'fixed'
+  const [taskType, setTaskType] = useState('hours'); // 'hours' | 'fixed' | 'months'
   const [editTask, setEditTask] = useState(null);
+  const [taskAdvancedMode, setTaskAdvancedMode] = useState(false);
 
   const [depModal, setDepModal] = useState(null); // null | moduleId
   const [depForm, setDepForm] = useState({ providerId: '', planId: '', quantity: 1 });
@@ -127,6 +142,7 @@ export default function BudgetEditor() {
         setLocalPercentages({
           contingencyPercentage: Number(bData.contingencyPercentage || 0),
           marginPercentage: Number(bData.marginPercentage || 0),
+          urgencyPercentage: Number(bData.urgencyPercentage || 0),
           taxPercentage: Number(bData.taxPercentage || 0),
           discountPercentage: Number(bData.discountPercentage || 0),
         });
@@ -183,8 +199,9 @@ export default function BudgetEditor() {
   };
 
   /* ---- MODULES ---- */
-  const openAddModule = () => { setEditModule(null); setModuleName(''); setMultiModules([]); setModuleModal(true); };
-  const openEditModule = (mod) => { setEditModule(mod); setModuleName(mod.name); setModuleModal(true); };
+  const openAddScopeModule = () => { setEditModule(null); setModuleName(''); setMultiModules([]); setModuleIsExtra(false); setModuleModal(true); };
+  const openAddExtraModule = () => { setEditModule(null); setModuleName(''); setMultiModules([]); setModuleIsExtra(true); setModuleModal(true); };
+  const openEditModule = (mod) => { setEditModule(mod); setModuleName(mod.name); setModuleIsExtra(mod.isExtra); setModuleModal(true); };
 
   const saveModule = async () => {
     if (editModule && !moduleName.trim()) return;
@@ -200,16 +217,62 @@ export default function BudgetEditor() {
           for (const m of multiModules) {
             if (m.name.trim()) {
               order++;
-              await budgetModulesService.create(budget.projectId, {
-                name: m.name,
-                orderNumber: order
+              const match = m.name.match(/^(.*?)\s*\((.*)\)$/);
+              const finalModuleName = match ? match[1].trim() : m.name;
+              const techs = match && match[2] ? match[2].split(',').map(t => t.trim()) : [];
+              
+              const newModuleRes = await budgetModulesService.create(budget.projectId, {
+                name: finalModuleName,
+                orderNumber: order,
+                isExtra: moduleIsExtra
               });
+              
+              const moduleId = newModuleRes.data.data.id;
+
+              if (techs.length > 0) {
+                // Find matching team member
+                const nameLower = finalModuleName.toLowerCase();
+                let keywords = [nameLower];
+                if (nameLower.includes('front')) keywords = ['front', 'web', 'ui'];
+                if (nameLower.includes('back')) keywords = ['back', 'api', 'server'];
+                if (nameLower.includes('data') || nameLower.includes('base de datos') || nameLower === 'bd') keywords = ['data', 'base', 'sql', 'bd'];
+                if (nameLower.includes('infra') || nameLower.includes('cloud')) keywords = ['infra', 'cloud', 'devops'];
+                if (nameLower.includes('móvil') || nameLower.includes('movil') || nameLower.includes('app')) keywords = ['movil', 'mobile', 'ios', 'android'];
+
+                const matchedTm = (budget.teamMembers || []).find(tm => {
+                  const roleStr = `${tm.projectRole || ''} ${tm.collaborator?.role || ''} ${tm.collaborator?.name || ''}`.toLowerCase();
+                  return keywords.some(kw => roleStr.includes(kw));
+                });
+
+                const rate = matchedTm ? Number(matchedTm.hourlyRate) || 0 : 0;
+                const estimatedMonths = parseInt(budget?.project?.estimatedDuration) || 1;
+                const hoursPerTech = Math.round((160 * estimatedMonths) / Math.max(1, techs.length));
+
+                let taskOrder = 0;
+                for (const tech of techs) {
+                  taskOrder++;
+                  await budgetTasksService.create(moduleId, {
+                    name: tech,
+                    description: matchedTm 
+                      ? `Encargado: ${matchedTm.collaborator?.name || 'Por asignar'} (${matchedTm.projectRole || finalModuleName})`
+                      : `Implementación de tecnología / rol: ${tech}`,
+                    hours: hoursPerTech,
+                    hourlyRate: rate,
+                    quantity: matchedTm ? Number(matchedTm.quantity) || 1 : 1,
+                    unitPrice: 0,
+                    orderNumber: taskOrder,
+                    type: 'hourly',
+                    priority: 'Media'
+                  });
+                }
+              }
             }
           }
         } else if (moduleName.trim()) {
           await budgetModulesService.create(budget.projectId, {
             name: moduleName,
-            orderNumber: (budget?.project?.modules?.length || 0) + 1
+            orderNumber: (budget?.project?.modules?.length || 0) + 1,
+            isExtra: moduleIsExtra
           });
         }
       }
@@ -232,18 +295,22 @@ export default function BudgetEditor() {
   const openAddTask = (moduleId) => {
     setEditTask(null);
     setTaskType('hours');
+    setTaskAdvancedMode(false);
     setTaskForm(TASK_DEFAULTS);
     setTaskModal(moduleId);
   };
 
   const openEditTask = (task, moduleId) => {
     setEditTask(task);
-    setTaskType(task.hours ? 'hours' : 'fixed');
+    const isFixed = task.type === 'fixed' || (task.hours == 0 && task.unitPrice > 0);
+    const isMonths = !isFixed && task.hours && (Number(task.hours) % 160 === 0);
+    setTaskType(isFixed ? 'fixed' : (isMonths ? 'months' : 'hours'));
+    setTaskAdvancedMode(isFixed); // Si es precio fijo, mostrar opciones avanzadas
     const meta = parseMetadata(task.description);
     setTaskForm({
       name: task.name || '',
       description: meta.cleanDesc || '',
-      hours: task.hours || '',
+      hours: isMonths ? parseFloat((Number(task.hours) / 160).toFixed(2)) : (task.hours || ''),
       hourlyRate: task.hourlyRate || '',
       quantity: task.quantity || '1',
       unitPrice: task.unitPrice || '',
@@ -252,6 +319,16 @@ export default function BudgetEditor() {
       dependsOn: meta.dependsOn,
     });
     setTaskModal(moduleId);
+  };
+
+  const handleTaskTypeChange = (newType) => {
+    if (taskType === 'hours' && newType === 'months') {
+      const converted = Math.max(1, Math.round(Number(taskForm.hours) / 160));
+      setTaskForm(f => ({ ...f, hours: converted || 1 }));
+    } else if (taskType === 'months' && newType === 'hours') {
+      setTaskForm(f => ({ ...f, hours: Math.round(Number(f.hours) * 160) || '' }));
+    }
+    setTaskType(newType);
   };
 
   const saveTask = async () => {
@@ -264,8 +341,8 @@ export default function BudgetEditor() {
         orderNumber: editTask ? editTask.orderNumber : 1,
       };
 
-      if (taskType === 'hours') {
-        payload.hours = Number(taskForm.hours) || 0;
+      if (taskType === 'hours' || taskType === 'months') {
+        payload.hours = taskType === 'months' ? Math.round(Number(taskForm.hours) * 160) || 0 : (Number(taskForm.hours) || 0);
         payload.hourlyRate = Number(taskForm.hourlyRate) || 0;
         payload.quantity = Number(taskForm.quantity) || 1;
         payload.unitPrice = null;
@@ -544,13 +621,15 @@ export default function BudgetEditor() {
   const selectedProvider = providers.find(p => p.id === depForm.providerId);
   const selectedPlan = selectedProvider?.plans?.find(pl => pl.id === depForm.planId);
 
-  const renderSlider = (label, field, min = 0, max = 100, step = 1) => {
+  const renderSlider = (label, field, min = 0, max = 100, step = 1, suffix = '%') => {
     const value = localPercentages[field];
     return (
       <div key={field} className="space-y-1">
         <div className="flex justify-between items-center text-xs">
           <span className="font-semibold text-secondary-700">{label}</span>
-          <span className="font-bold text-secondary-900 bg-secondary-100 px-1.5 py-0.5 rounded">{value}%</span>
+          <span className="font-bold text-secondary-900 bg-secondary-100 px-1.5 py-0.5 rounded">
+            {value}{suffix === 'meses' ? (value === 1 ? ' mes' : ' meses') : suffix}
+          </span>
         </div>
         <input
           type="range"
@@ -699,8 +778,11 @@ export default function BudgetEditor() {
                         <Icon icon="mdi:text-box-multiple-outline" /> Aplicar Plantilla
                       </button>
                     )}
-                    <button onClick={openAddModule} className="btn-primary flex items-center gap-1.5 text-sm">
-                      <Icon icon="mdi:plus" /> Añadir Módulo
+                    <button onClick={openAddScopeModule} className="btn-secondary flex items-center gap-1.5 text-sm border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100">
+                      <Icon icon="mdi:tools" /> Generador de Alcance
+                    </button>
+                    <button onClick={openAddExtraModule} className="btn-primary flex items-center gap-1.5 text-sm">
+                      <Icon icon="mdi:plus-circle" /> Módulo Adicional
                     </button>
                   </>
                 )}
@@ -719,8 +801,11 @@ export default function BudgetEditor() {
                         <Icon icon="mdi:text-box-multiple-outline" /> Cargar Plantilla
                       </button>
                     )}
-                    <button onClick={openAddModule} className="btn-primary flex items-center gap-1.5 text-sm">
-                      <Icon icon="mdi:plus" /> Crear Módulo
+                    <button onClick={openAddScopeModule} className="btn-secondary flex items-center gap-1.5 text-sm border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100">
+                      <Icon icon="mdi:tools" /> Generador de Alcance
+                    </button>
+                    <button onClick={openAddExtraModule} className="btn-primary flex items-center gap-1.5 text-sm">
+                      <Icon icon="mdi:plus-circle" /> Módulo Adicional
                     </button>
                   </div>
                 )}
@@ -736,8 +821,15 @@ export default function BudgetEditor() {
                           <Icon icon="mdi:folder-outline" className="text-secondary-700 text-lg" />
                         </div>
                         <div>
-                          <span className="font-bold text-secondary-900">{mod.name}</span>
-                          <p className="text-[10px] text-secondary-400 font-medium tracking-wider uppercase mt-0.5">Subtotal: {symbol} {Number(mod.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-secondary-900">{mod.name}</span>
+                            {mod.isExtra && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 uppercase">Extra</span>}
+                            {!mod.isExtra && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase">Alcance Base</span>}
+                          </div>
+                          {mod.description && (
+                            <p className="text-[11px] text-secondary-500 mt-1 leading-snug max-w-2xl">{mod.description}</p>
+                          )}
+                          <p className="text-[10px] text-secondary-400 font-medium tracking-wider uppercase mt-1">Subtotal: {symbol} {Number(mod.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                         </div>
                       </div>
                       {!isLocked && (
@@ -871,14 +963,24 @@ export default function BudgetEditor() {
 
               <h3 className="font-bold text-xs uppercase tracking-widest text-secondary-400 mb-4">Resumen de Totales</h3>
               <div className="space-y-3 font-medium text-sm">
+                <div className="flex justify-between border-b border-white/10 pb-2 text-blue-200">
+                  <span>Alcance Base (Equipo × {budget?.project?.estimatedDuration || '1 mes'})</span>
+                  <span>{symbol} {Number(budget?.baseTeamCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
                 <div className="flex justify-between border-b border-white/10 pb-2">
-                  <span className="text-secondary-300">Subtotal Módulos</span>
-                  <span>{symbol} {Number(budget?.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-secondary-300">Módulos Adicionales</span>
+                  <span>{symbol} {Math.max(0, Number(budget?.subtotal || 0) - Number(budget?.baseTeamCost || 0)).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between border-b border-white/10 pb-2">
                   <span className="text-secondary-300">Contingencia ({budget?.contingencyPercentage}%)</span>
                   <span>{symbol} {Number(budget?.contingencyAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
+                {Number(budget?.urgencyPercentage || 0) > 0 && (
+                  <div className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-secondary-300">Aceleración de Entrega (-{budget?.urgencyPercentage} {budget?.urgencyPercentage === 1 ? 'mes' : 'meses'})</span>
+                    <span>{symbol} {Number(budget?.urgencyAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-b border-white/10 pb-2">
                   <span className="text-secondary-300">Margen Comercial ({budget?.marginPercentage}%)</span>
                   <span>{symbol} {Number(budget?.marginAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
@@ -897,6 +999,16 @@ export default function BudgetEditor() {
                     {symbol} {Number(budget?.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
+                {parseInt(budget?.project?.estimatedDuration) > 1 && (
+                  <div className="flex justify-between pt-3 mt-3 border-t border-white/20 text-blue-200 text-xs bg-white/5 -mx-6 px-6 pb-4">
+                    <span className="font-bold flex items-center gap-1 uppercase tracking-wide">
+                      <Icon icon="mdi:calendar-month-outline" className="text-sm" /> Sugerencia Mensual ({parseInt(budget?.project?.estimatedDuration)} Cuotas)
+                    </span>
+                    <span className="font-mono font-bold">
+                      {symbol} {(Number(budget?.total || 0) / parseInt(budget?.project?.estimatedDuration)).toLocaleString('en-US', { minimumFractionDigits: 2 })} / mes
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -929,6 +1041,7 @@ export default function BudgetEditor() {
               </div>
 
               {renderSlider('Contingencia', 'contingencyPercentage', 0, 30)}
+              {renderSlider('Reducir Tiempo (Urgencia)', 'urgencyPercentage', 0, Math.max(0, parseInt(budget?.project?.estimatedDuration || 1) - 1), 1, 'meses')}
               {renderSlider('Margen Comercial', 'marginPercentage', 0, 80)}
               {renderSlider('Impuestos (IGV)', 'taxPercentage', 0, 30)}
               {renderSlider('Descuento', 'discountPercentage', 0, 40)}
@@ -1126,8 +1239,11 @@ export default function BudgetEditor() {
                 modules.map((mod) => (
                   <div key={mod.id} className="space-y-2">
                     <div className="flex justify-between items-center bg-secondary-900 text-white px-4 py-1.5 rounded text-xs font-bold">
-                      <span>MÓDULO: {mod.name}</span>
-                      <span>Subtotal Módulo: {symbol} {Number(mod.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      <div className="flex flex-col">
+                        <span>MÓDULO: {mod.name}</span>
+                        {mod.description && <span className="text-[9px] font-normal text-secondary-300 mt-0.5">{mod.description}</span>}
+                      </div>
+                      <span className="whitespace-nowrap ml-4">Subtotal Módulo: {symbol} {Number(mod.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                     </div>
 
                     <table className="w-full text-left text-xs border border-secondary-100 rounded overflow-hidden">
@@ -1227,21 +1343,51 @@ export default function BudgetEditor() {
             )}
 
             {/* Financial Summary Breakdown (Inversión General) */}
-            <div className="flex justify-end pt-4 page-break text-left">
-              <div className="w-1/2 space-y-2 text-xs">
+            <div className="flex justify-between pt-6 page-break text-left items-end">
+              <div className="w-[48%]">
+                {parseInt(budget?.project?.estimatedDuration) > 1 && (
+                  <div className="p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 text-indigo-900 flex flex-col justify-center h-full">
+                    <span className="flex items-center gap-1.5 uppercase tracking-wide text-[10px] font-bold mb-1.5 text-indigo-700">
+                      <Icon icon="mdi:calendar-month-outline" className="text-base" /> Pago Mensual 
+                    </span>
+                    <div className="flex items-end gap-1.5">
+                      <span className="font-mono text-xl font-black">
+                        {symbol} {(Number(budget?.total || 0) / parseInt(budget?.project?.estimatedDuration)).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-xs font-bold text-indigo-500 mb-0.5">
+                        / mes ({parseInt(budget?.project?.estimatedDuration)} cuotas)
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="w-[45%] space-y-2 text-xs">
                 <h4 className="font-bold text-secondary-800 border-b border-secondary-200 pb-1.5 uppercase tracking-wide">
                   Resumen de Inversión Financiera
                 </h4>
                 <div className="space-y-1.5 font-medium">
                   <div className="flex justify-between">
-                    <span className="text-secondary-500">Subtotal Módulos</span>
-                    <span className="font-mono text-secondary-900">{symbol} {Number(budget?.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-secondary-500">Alcance Base (Equipo × {budget?.project?.estimatedDuration || '1 mes'})</span>
+                    <span className="font-mono text-secondary-900">{symbol} {Number(budget?.baseTeamCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-secondary-500">Módulos Adicionales / SaaS</span>
+                    <span className="font-mono text-secondary-900">{symbol} {Math.max(0, Number(budget?.subtotal || 0) - Number(budget?.baseTeamCost || 0)).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                   </div>
 
                   {Number(budget?.contingencyAmount || 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-secondary-500">Contingencia ({budget?.contingencyPercentage}%)</span>
                       <span className="font-mono text-secondary-900">+{symbol} {Number(budget?.contingencyAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+
+                  {Number(budget?.urgencyAmount || 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-secondary-500">Aceleración de Entrega (-{budget?.urgencyPercentage} {budget?.urgencyPercentage === 1 ? 'mes' : 'meses'})</span>
+                      <span className="font-mono text-secondary-900">+{symbol} {Number(budget?.urgencyAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                     </div>
                   )}
 
@@ -1350,12 +1496,48 @@ export default function BudgetEditor() {
                 const showInfra = projectRolesRaw.length === 0 || rolesStr.includes('infra') || rolesStr.includes('cloud') || rolesStr.includes('devops') || rolesStr.includes('aws');
                 const showMovil = projectRolesRaw.length === 0 || rolesStr.includes('movil') || rolesStr.includes('mobile') || rolesStr.includes('ios') || rolesStr.includes('android');
 
+                // Obtener todas las etiquetas posibles
+                const allPossibleTags = Object.values(MODULE_SUGGESTIONS).flat();
+                const selectedTags = editModule 
+                  ? allPossibleTags.filter(t => moduleName.includes(t))
+                  : allPossibleTags.filter(t => multiModules.some(m => m.name.includes(t)));
+
                 const dynamicSuggestions = {};
-                if (showFront) dynamicSuggestions['Frontend'] = MODULE_SUGGESTIONS['Frontend'];
-                if (showBack) dynamicSuggestions['Backend'] = MODULE_SUGGESTIONS['Backend'];
-                if (showData) dynamicSuggestions['Base de Datos'] = MODULE_SUGGESTIONS['Base de Datos'];
-                if (showInfra) dynamicSuggestions['Infra / Cloud'] = MODULE_SUGGESTIONS['Infra / Cloud'];
-                if (showMovil) dynamicSuggestions['App Móvil'] = MODULE_SUGGESTIONS['App Móvil'];
+                if (showFront) {
+                  dynamicSuggestions['Frontend - Arquitectura'] = MODULE_SUGGESTIONS['Frontend - Arquitectura'];
+                  dynamicSuggestions['Frontend - Tecnología'] = MODULE_SUGGESTIONS['Frontend - Tecnología'];
+                  dynamicSuggestions['Frontend - Estilos'] = MODULE_SUGGESTIONS['Frontend - Estilos'];
+                }
+                if (showBack) {
+                  dynamicSuggestions['Backend - Arquitectura'] = MODULE_SUGGESTIONS['Backend - Arquitectura'];
+                  dynamicSuggestions['Backend - Lenguaje'] = MODULE_SUGGESTIONS['Backend - Lenguaje'];
+                  
+                  const backendLangs = selectedTags.filter(t => MODULE_SUGGESTIONS['Backend - Lenguaje'].includes(t));
+                  let frameworks = MODULE_SUGGESTIONS['Backend - Framework'];
+                  if (backendLangs.length > 0) {
+                    frameworks = [];
+                    if (backendLangs.includes('Node.js (JS/TS)')) frameworks.push('Express', 'NestJS');
+                    if (backendLangs.includes('Python')) frameworks.push('Django', 'FastAPI');
+                    if (backendLangs.includes('Java')) frameworks.push('Spring Boot');
+                    if (backendLangs.includes('PHP')) frameworks.push('Laravel');
+                    if (backendLangs.includes('Go')) frameworks.push('Gin', 'Fiber');
+                    if (backendLangs.includes('Ruby')) frameworks.push('Ruby on Rails');
+                    if (backendLangs.includes('C# / .NET')) frameworks.push('ASP.NET');
+                  }
+                  dynamicSuggestions['Backend - Framework'] = frameworks;
+                }
+                if (showData) {
+                  dynamicSuggestions['BD - Arquitectura'] = MODULE_SUGGESTIONS['BD - Arquitectura'];
+                  dynamicSuggestions['BD - Tecnología'] = MODULE_SUGGESTIONS['BD - Tecnología'];
+                }
+                if (showInfra) {
+                  dynamicSuggestions['Infra - Arquitectura'] = MODULE_SUGGESTIONS['Infra - Arquitectura'];
+                  dynamicSuggestions['Infra - Proveedor'] = MODULE_SUGGESTIONS['Infra - Proveedor'];
+                  dynamicSuggestions['Infra - Herramientas'] = MODULE_SUGGESTIONS['Infra - Herramientas'];
+                }
+                if (showMovil) {
+                  dynamicSuggestions['App Móvil - Arq / Tech'] = MODULE_SUGGESTIONS['App Móvil - Arq / Tech'];
+                }
                 dynamicSuggestions['Soporte y Mantenimiento'] = MODULE_SUGGESTIONS['Soporte y Mantenimiento'];
                 dynamicSuggestions['Otros'] = MODULE_SUGGESTIONS['Otros'];
 
@@ -1363,12 +1545,6 @@ export default function BudgetEditor() {
                 if (uniqueProjectRoles.length > 0) {
                   dynamicSuggestions['Equipo / Roles'] = uniqueProjectRoles;
                 }
-
-                // Obtener todas las etiquetas seleccionadas buscando ocurrencias
-                const allPossibleTags = Object.values(dynamicSuggestions).flat();
-                const selectedTags = editModule 
-                  ? allPossibleTags.filter(t => moduleName.includes(t))
-                  : allPossibleTags.filter(t => multiModules.some(m => m.name.includes(t)));
 
                 const toggleTech = (tech, category) => {
                   if (editModule) {
@@ -1381,7 +1557,10 @@ export default function BudgetEditor() {
                         if (updated === '()') updated = '';
                         return updated.trim();
                       } else {
-                        let cleanCat = category || 'Módulo';
+                        let cleanCat = category ? category.split(' - ')[0] : 'Módulo';
+                        if (cleanCat === 'BD') cleanCat = 'Base de Datos';
+                        if (cleanCat === 'Infra') cleanCat = 'Infraestructura';
+                        if (cleanCat === 'App Móvil') cleanCat = 'App Móvil';
                         if (cleanCat === 'Equipo / Roles' || cleanCat === 'Otros') cleanCat = 'Módulo';
                         
                         if (!prev) return `${cleanCat} (${tech})`;
@@ -1416,7 +1595,10 @@ export default function BudgetEditor() {
                          return `${m} ${m === 1 ? 'Mes' : 'Meses'}`;
                       };
 
-                      let cleanCat = category || 'Módulo';
+                      let cleanCat = category ? category.split(' - ')[0] : 'Módulo';
+                      if (cleanCat === 'BD') cleanCat = 'Base de Datos';
+                      if (cleanCat === 'Infra') cleanCat = 'Infraestructura';
+                      if (cleanCat === 'App Móvil') cleanCat = 'App Móvil';
                       if (cleanCat === 'Equipo / Roles' || cleanCat === 'Otros') cleanCat = 'Módulo';
 
                       let isTimeAdd = false;
@@ -1670,7 +1852,11 @@ export default function BudgetEditor() {
               {/* Botones */}
               <div className="flex gap-3 pt-4 border-t border-secondary-100">
                 <button onClick={() => setModuleModal(false)} className="btn-secondary flex-1 py-2.5 bg-white border-2">Cancelar</button>
-                <button onClick={saveModule} disabled={saving || !moduleName.trim()} className="btn-primary flex-1 py-2.5 shadow-lg shadow-indigo-500/20">
+                <button 
+                  onClick={saveModule} 
+                  disabled={saving || (editModule ? !moduleName.trim() : (multiModules.length === 0 && !moduleName.trim()))} 
+                  className="btn-primary flex-1 py-2.5 shadow-lg shadow-indigo-500/20"
+                >
                   {saving ? <Icon icon="mdi:loading" className="animate-spin text-xl" /> : (
                     <div className="flex items-center justify-center gap-2">
                       <Icon icon="mdi:check-circle" className="text-lg" />
@@ -1692,14 +1878,34 @@ export default function BudgetEditor() {
               className="bg-white rounded-xl shadow-2xl border border-secondary-200 w-full max-w-lg p-6 space-y-4">
               <h2 className="text-lg font-bold text-secondary-950">{editTask ? 'Editar Tarea' : 'Nueva Tarea'}</h2>
 
+              {(() => {
+                const parentModule = budget?.project?.modules?.find(m => m.id === (editTask?.moduleId || taskModal));
+                if (parentModule && !parentModule.isExtra) {
+                  return (
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex gap-2">
+                      <Icon icon="mdi:information" className="text-indigo-500 text-lg flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-indigo-800 font-medium leading-relaxed">
+                        <strong>¡Tranquilo!</strong> Esta tarea pertenece al Alcance Base. Puedes editar los meses, horas o tarifas como prefieras, pero <strong>esto NO descuadrará ni aumentará el precio total de tu presupuesto</strong>. Solo sirve para desglosarle al cliente en qué se va el tiempo.
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {/* Task Type Switcher */}
               <div className="flex bg-secondary-100 p-1 rounded-lg">
-                <button type="button" onClick={() => setTaskType('hours')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${taskType === 'hours' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-500'}`}>
+                <button type="button" onClick={() => handleTaskTypeChange('hours')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${taskType === 'hours' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-500'}`}>
                   Por Horas
                 </button>
-                <button type="button" onClick={() => setTaskType('fixed')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${taskType === 'fixed' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-500'}`}>
-                  Precio Fijo
+                <button type="button" onClick={() => handleTaskTypeChange('months')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${taskType === 'months' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-500'}`}>
+                  Por Meses
                 </button>
+                {taskAdvancedMode && (
+                  <button type="button" onClick={() => handleTaskTypeChange('fixed')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${taskType === 'fixed' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-500'}`}>
+                    Precio Fijo
+                  </button>
+                )}
               </div>
 
               <div>
@@ -1708,55 +1914,77 @@ export default function BudgetEditor() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {taskType === 'hours' ? (
-                  <>
-                    <div>
-                      <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Horas Estimadas</label>
-                      <input type="number" value={taskForm.hours} onChange={e => setTaskForm(f => ({ ...f, hours: e.target.value }))} placeholder="15" className="input-base" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Tarifa por Hora ({symbol})</label>
-                      <input type="number" value={taskForm.hourlyRate} onChange={e => setTaskForm(f => ({ ...f, hourlyRate: e.target.value }))} placeholder="35" className="input-base" />
-                    </div>
-                  </>
+                {taskType === 'hours' || taskType === 'months' ? (
+                  <div className={taskAdvancedMode ? "" : "col-span-2"}>
+                    <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">{taskType === 'months' ? 'Meses Estimados' : 'Horas Estimadas'}</label>
+                    <input type="number" step={taskType === 'months' ? "1" : "any"} min={taskType === 'months' ? "1" : "0"} value={taskForm.hours} onChange={e => setTaskForm(f => ({ ...f, hours: e.target.value }))} placeholder={taskType === 'months' ? "1" : "15"} className="input-base" />
+                    {taskType === 'months' && <p className="text-[10px] text-secondary-400 mt-1 font-medium">El proyecto base está estimado en {parseInt(budget?.project?.estimatedDuration) || 1} meses.</p>}
+                  </div>
                 ) : (
-                  <div>
+                  <div className={taskAdvancedMode ? "" : "col-span-2"}>
                     <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Precio Unitario ({symbol})</label>
                     <input type="number" value={taskForm.unitPrice} onChange={e => setTaskForm(f => ({ ...f, unitPrice: e.target.value }))} placeholder="150" className="input-base" />
                   </div>
                 )}
-                <div>
-                  <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Cantidad</label>
-                  <input type="number" value={taskForm.quantity} onChange={e => setTaskForm(f => ({ ...f, quantity: e.target.value }))} className="input-base" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+                
+                <div className={taskAdvancedMode ? "" : "hidden"}>
                   <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Rol / Perfil</label>
                   <input value={taskForm.role} onChange={e => setTaskForm(f => ({ ...f, role: e.target.value }))} placeholder="Ej. Frontend, QA..." className="input-base" />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Prioridad</label>
-                  <select value={taskForm.priority} onChange={e => setTaskForm(f => ({ ...f, priority: e.target.value }))} className="input-base bg-white">
-                    <option value="Alta">Alta</option>
-                    <option value="Media">Media</option>
-                    <option value="Baja">Baja</option>
-                  </select>
+              </div>
+
+              {taskAdvancedMode && (
+                <div className="grid grid-cols-2 gap-3">
+                  {(taskType === 'hours' || taskType === 'months') && (
+                    <div>
+                      <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Tarifa por Hora ({symbol})</label>
+                      <input type="number" value={taskForm.hourlyRate} onChange={e => setTaskForm(f => ({ ...f, hourlyRate: e.target.value }))} placeholder="35" className="input-base" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Cantidad</label>
+                    <input type="number" value={taskForm.quantity} onChange={e => setTaskForm(f => ({ ...f, quantity: e.target.value }))} className="input-base" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Prioridad</label>
+                    <select value={taskForm.priority} onChange={e => setTaskForm(f => ({ ...f, priority: e.target.value }))} className="input-base bg-white">
+                      <option value="Alta">Alta</option>
+                      <option value="Media">Media</option>
+                      <option value="Baja">Baja</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Depende de (Opcional)</label>
+                    <select value={taskForm.dependsOn} onChange={e => setTaskForm(f => ({ ...f, dependsOn: e.target.value }))} className="input-base bg-white">
+                      <option value="">Ninguna</option>
+                      {(() => {
+                        const mod = budget?.project?.modules?.find(m => m.id === taskModal);
+                        if (!mod || !mod.tasks) return null;
+                        return mod.tasks.filter(t => t.id !== editTask?.id).map(t => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ));
+                      })()}
+                    </select>
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Depende de (Opcional)</label>
-                  <select value={taskForm.dependsOn} onChange={e => setTaskForm(f => ({ ...f, dependsOn: e.target.value }))} className="input-base bg-white">
-                    <option value="">Ninguna</option>
-                    {(() => {
-                      const mod = modules.find(m => m.id === taskModal);
-                      if (!mod || !mod.tasks) return null;
-                      return mod.tasks.filter(t => t.id !== editTask?.id).map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ));
-                    })()}
-                  </select>
+              )}
+
+              {!taskAdvancedMode && (
+                <div className={taskAdvancedMode ? "hidden" : "block"}>
+                  <label className="block text-xs font-bold text-secondary-500 uppercase mb-1.5">Rol / Perfil (Opcional)</label>
+                  <input value={taskForm.role} onChange={e => setTaskForm(f => ({ ...f, role: e.target.value }))} placeholder="Ej. Frontend, QA..." className="input-base" />
                 </div>
+              )}
+
+              <div className="flex justify-center my-2">
+                <button 
+                  type="button" 
+                  onClick={() => setTaskAdvancedMode(!taskAdvancedMode)}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
+                >
+                  <Icon icon={taskAdvancedMode ? "mdi:chevron-up" : "mdi:chevron-down"} className="text-lg" />
+                  {taskAdvancedMode ? 'Ocultar opciones avanzadas' : 'Mostrar opciones avanzadas (Tarifas, cantidad...)'}
+                </button>
               </div>
 
               <div>
@@ -1773,7 +2001,7 @@ export default function BudgetEditor() {
             </motion.div>
           </motion.div>
         )}
-
+        
         {/* Dependency Modal */}
         {depModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

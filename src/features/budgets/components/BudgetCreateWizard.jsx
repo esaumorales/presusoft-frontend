@@ -14,6 +14,36 @@ const labelStyle = { display: 'block', fontSize: 13, fontWeight: 700, color: C.s
 
 const EMPTY = { title: '', description: '', clientId: '', templateId: '', currency: 'PEN', taxPercentage: 18, validityDays: 15, estimatedDuration: '' };
 
+const HOURS_PER_MONTH = 160;
+const EXCHANGE_RATES = {
+  USD: 1,
+  PEN: 3.75,
+  EUR: 0.92
+};
+const CURRENCY_SYMBOLS = {
+  USD: '$',
+  PEN: 'S/.',
+  EUR: '€'
+};
+
+const convertCurrency = (amount, fromCurrency, toCurrency) => {
+  const value = Number(amount) || 0;
+  const fromRate = EXCHANGE_RATES[fromCurrency || 'USD'] || 1;
+  const toRate = EXCHANGE_RATES[toCurrency || 'USD'] || 1;
+  
+  const valueInUSD = value / fromRate;
+  return (valueInUSD * toRate).toFixed(2);
+};
+
+const getMonthsFromDuration = (durationString) => {
+  if (!durationString || durationString === 'No especificado') return 0;
+  if (durationString.includes('Año')) {
+    const years = parseInt(durationString) || 1;
+    return years * 12;
+  }
+  return parseInt(durationString) || 0;
+};
+
 export default function BudgetCreateWizard({ isOpen, onClose, onCreated }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(EMPTY);
@@ -143,11 +173,23 @@ export default function BudgetCreateWizard({ isOpen, onClose, onCreated }) {
     const roles = rolesString.split(',').map(r => r.trim()).filter(Boolean);
     if (roles.length === 0) roles.push('Otros');
     roles.forEach(r => {
-      if (!acc[r]) acc[r] = [];
-      acc[r].push(c);
+      let norm = r.toUpperCase();
+      if (norm === 'BD' || norm === 'BASE DE DATO') norm = 'BASE DE DATOS';
+      if (!acc[norm]) acc[norm] = [];
+      acc[norm].push(c);
     });
     return acc;
   }, {});
+
+  const targetCurrency = form.currency || 'USD';
+  const currencySymbol = CURRENCY_SYMBOLS[targetCurrency] || '$';
+  const durationMonths = getMonthsFromDuration(form.estimatedDuration);
+  
+  const totalHourlyRateConverted = seleccionados.reduce((sum, m) => {
+    return sum + Number(convertCurrency(m.hourlyRate, m.currency, targetCurrency));
+  }, 0);
+  const monthlyCost = totalHourlyRateConverted * HOURS_PER_MONTH;
+  const totalCost = monthlyCost * durationMonths;
 
   if (!isOpen) return null;
 
@@ -266,7 +308,7 @@ export default function BudgetCreateWizard({ isOpen, onClose, onCreated }) {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                     <div>
                                       <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.text }}>{m.name}</p>
-                                      <p style={{ margin: 0, fontSize: 11, color: C.s500 }}>${m.hourlyRate}/hr</p>
+                                      <p style={{ margin: 0, fontSize: 11, color: C.s500 }}>{currencySymbol}{convertCurrency(m.hourlyRate, m.currency, targetCurrency)}/hr</p>
                                     </div>
                                   </div>
                                   <button type="button" onClick={(e) => { e.stopPropagation(); moveToProject(m.id, role); }} style={{ background: 'none', border: 'none', color: C.s800, cursor: 'pointer' }}>
@@ -338,7 +380,7 @@ export default function BudgetCreateWizard({ isOpen, onClose, onCreated }) {
                                         {selectionData?.projectRoles?.[0] || rolesArray[0]}
                                       </span>
                                     )}
-                                    <span style={{ fontSize: 11, color: C.s500, fontWeight: 600, marginLeft: 4 }}>• ${m.hourlyRate}/hr</span>
+                                    <span style={{ fontSize: 11, color: C.s500, fontWeight: 600, marginLeft: 4 }}>• {currencySymbol}{convertCurrency(m.hourlyRate, m.currency, targetCurrency)}/hr</span>
                                   </div>
                                 </div>
                               </div>
@@ -353,6 +395,35 @@ export default function BudgetCreateWizard({ isOpen, onClose, onCreated }) {
                             </div>
                           );
                         })}
+                      </div>
+                    )}
+
+                    {/* Resumen de Costos */}
+                    {seleccionados.length > 0 && (
+                      <div style={{ marginTop: 24, padding: 16, background: '#f8fafc', borderRadius: 12, border: `1px solid ${C.border}` }}>
+                        <h5 style={{ margin: '0 0 12px 0', fontSize: 12, fontWeight: 800, color: C.s700, textTransform: 'uppercase' }}>Proyección de Costos</h5>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <span style={{ fontSize: 13, color: C.s600 }}>Costo por Hora (Equipo)</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.s900 }}>{currencySymbol}{totalHourlyRateConverted.toFixed(2)}</span>
+                        </div>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <span style={{ fontSize: 13, color: C.s600 }}>Costo Mensual Est. (160h)</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.s900 }}>{currencySymbol}{monthlyCost.toFixed(2)}</span>
+                        </div>
+
+                        {durationMonths > 0 ? (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTop: `1px dashed ${C.border}` }}>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: C.s800 }}>Costo Total ({form.estimatedDuration})</span>
+                            <span style={{ fontSize: 15, fontWeight: 800, color: '#16a34a' }}>{currencySymbol}{totalCost.toFixed(2)}</span>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTop: `1px dashed ${C.border}` }}>
+                            <span style={{ fontSize: 12, color: C.s500 }}>Costo Total</span>
+                            <span style={{ fontSize: 12, color: C.s500, fontStyle: 'italic' }}>Falta definir duración (Paso 1)</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
